@@ -76,8 +76,14 @@ export const handler = async (event) => {
   if (!wallet) return json(200, { ok: false, reason: 'quiet', error: 'no wallet on the session' });
 
   let balance;
+  let sol = null;
   try {
     balance = await balanceOf(wallet);
+    try {
+      const { rpc } = await import('./_shared.js');
+      const lamports = await rpc('getBalance', [wallet]);
+      sol = (lamports?.value ?? lamports ?? 0) / 1e9;
+    } catch { /* the wallet tab shows a dash */ }
   } catch (err) {
     console.error('[holder-check] rpc', err.message);
     return json(200, { ok: false, reason: 'quiet', error: 'the chain did not answer. try again in a minute.' });
@@ -126,6 +132,8 @@ export const handler = async (event) => {
     ok: true,
     eligible,
     balance,
+    sol,
+    wallet,
     threshold: min,
     holder: { handle: saved?.handle || null, lang: saved?.lang || null, taken },
   });

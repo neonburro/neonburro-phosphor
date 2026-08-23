@@ -38,7 +38,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Box, HStack, Text, VStack, Input, useBreakpointValue } from '@chakra-ui/react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import colors from '../../theme/colors';
 import { EASE } from '../../theme/layout';
 import { useHolder } from '../../lib/holder';
@@ -78,6 +78,8 @@ const ago = (iso, now) => {
 const Room = () => {
   const nav = useNavigate();
   const holder = useHolder();
+  const [params] = useSearchParams();
+  const wanted = params.get('r');
   const desktop = useBreakpointValue({ base: false, md: true }, { ssr: false });
   const [rooms, setRooms] = useState([]);
   const [open, setOpen] = useState(null);
@@ -97,7 +99,11 @@ const Room = () => {
     if (holder.state !== 'in') return;
     fetchRooms().then((r) => {
       setRooms(r);
-      if (r.length && desktop) setOpen((o) => o || r[0].slug);
+      // ?r walks straight into a named room, the epoch tab uses it for the
+      // coin. Otherwise desktop opens the first room and a phone shows the
+      // rail.
+      if (wanted && r.some((x) => x.slug === wanted)) setOpen(wanted);
+      else if (r.length && desktop) setOpen((o) => o || r[0].slug);
     });
   }, [holder.state, desktop]);
 
@@ -210,11 +216,14 @@ const Room = () => {
               </Box>
             ))}
           </VStack>
-          <Box px={5} py={3} borderTop="1px solid" borderColor={colors.surface.line}>
+          <HStack px={5} py={3} borderTop="1px solid" borderColor={colors.surface.line} justify="space-between">
+            <Box as="button" type="button" onClick={() => nav('/wallet/')} fontFamily={MONO} fontSize="11px" color={colors.accent.signal}>
+              {t('nav_wallet')} →
+            </Box>
             <Box as="button" type="button" onClick={leave} fontFamily={MONO} fontSize="11px" color={colors.text.muted} _hover={{ color: colors.text.primary }}>
               {t('room_leave')}
             </Box>
-          </Box>
+          </HStack>
         </VStack>
       )}
 

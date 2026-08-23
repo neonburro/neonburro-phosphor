@@ -21,6 +21,7 @@ import Door from './pages/Door';
 import Hello from './pages/Hello';
 import Room from './pages/Room';
 import Approve from './pages/Approve';
+import Wallet from './pages/Wallet';
 
 const App = () => (
   <BrowserRouter>
@@ -28,6 +29,7 @@ const App = () => (
       <Routes>
         <Route path="/" element={<Door />} />
         <Route path="/hello/" element={<Hello />} />
+        <Route path="/wallet/" element={<Wallet />} />
         <Route path="/room/" element={<Room />} />
         <Route path="/approve/" element={<Approve />} />
         <Route path="*" element={<Navigate to="/" replace />} />

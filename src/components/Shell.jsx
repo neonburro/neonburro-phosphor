@@ -12,7 +12,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useState } from 'react';
 import colors from '../theme/colors';
 import { RAIL, EASE } from '../theme/layout';
-import { LANGS, currentLang, setLang } from '../data/copy';
+import { LANGS, currentLang, setLang, t } from '../data/copy';
 
 // ── KNEEON MUSK, THE CORNER ─────────────────────────────────────────────────
 // The Powered by Netlify badge is retired and this is what stands where it
@@ -67,6 +67,65 @@ const MuskChip = () => {
   );
 };
 
+// ── THE APP NAV ─────────────────────────────────────────────────────────────
+// The product's frame, shown once a holder is inside: wallet, rooms and
+// epoch, who is a place as much as a burro. A floating pill on a phone, the
+// same three words in the header on a desktop. The epoch tab walks straight
+// to his desk in the coin room. This is the shape the future app downloads
+// with, the site is the beta and dresses like it.
+const TABS = [
+  { id: 'wallet', to: '/wallet/', key: 'nav_wallet' },
+  { id: 'rooms', to: '/room/', key: 'nav_rooms' },
+  { id: 'epoch', to: '/room/?r=the-coin', key: 'nav_epoch' },
+];
+
+const AppNav = ({ pathname, search }) => {
+  const active = (tab) => {
+    if (tab.id === 'wallet') return pathname.startsWith('/wallet');
+    if (tab.id === 'epoch') return pathname.startsWith('/room') && search.includes('r=the-coin');
+    return pathname.startsWith('/room') && !search.includes('r=the-coin');
+  };
+  return (
+    <HStack
+      display={{ base: pathname.startsWith('/room') ? 'none' : 'flex', md: 'flex' }}
+      position="fixed"
+      bottom={{ base: '12px', md: 'auto' }}
+      top={{ base: 'auto', md: '14px' }}
+      left="50%"
+      transform="translateX(-50%)"
+      zIndex={850}
+      spacing={1}
+      px={1.5}
+      py={1.5}
+      borderRadius="full"
+      bg="rgba(20,20,22,0.92)"
+      border="1px solid"
+      borderColor={colors.surface.line}
+      backdropFilter="blur(12px)"
+      boxShadow="0 10px 30px rgba(0,0,0,0.45)"
+    >
+      {TABS.map((tab) => (
+        <Box key={tab.id} as={Link} to={tab.to}
+          px={4} py={1.5} borderRadius="full"
+          bg={active(tab) ? colors.accent.signalAlpha[16] : 'transparent'}
+          border="1px solid" borderColor={active(tab) ? colors.accent.signalAlpha[32] : 'transparent'}
+          transition={`background 200ms ${EASE}, border-color 200ms ${EASE}`}
+          _hover={{ textDecoration: 'none', bg: 'rgba(255,255,255,0.05)' }}>
+          <HStack spacing={2}>
+            {tab.id === 'epoch' && (
+              <Box as="img" src="https://neonburro.com/token/epoch-avatar.webp" alt="" w="16px" h="16px" borderRadius="6px" objectFit="cover" />
+            )}
+            <Text fontFamily="mono" fontSize="12px" fontWeight="500"
+              color={active(tab) ? colors.accent.signal : colors.text.secondary}>
+              {t(tab.key)}
+            </Text>
+          </HStack>
+        </Box>
+      ))}
+    </HStack>
+  );
+};
+
 const Shell = ({ children }) => {
   const { pathname } = useLocation();
   // The room is a messenger and a messenger owns its scroll. On /room/ the
@@ -101,7 +160,10 @@ const Shell = ({ children }) => {
       <Box as="main" flex="1" minH={0} display="flex" flexDirection="column" key={pathname}>
         {children}
       </Box>
-      {!pathname.startsWith('/room') && <MuskChip />}
+      {!pathname.startsWith('/room') && !pathname.startsWith('/wallet') && <MuskChip />}
+      {(pathname.startsWith('/wallet') || pathname.startsWith('/room')) && (
+        <AppNav pathname={pathname} search={typeof window !== 'undefined' ? window.location.search : ''} />
+      )}
     </Box>
   );
 };

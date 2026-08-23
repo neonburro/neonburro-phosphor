@@ -213,6 +213,11 @@ const Door = () => {
           <Button size="lg" onClick={go} isLoading={phase === 'signing' || phase === 'checking'} loadingText={phase === 'signing' ? '...' : t('door_signed')}>
             {knownHandle() ? t('door_button_back', { handle: knownHandle() }) : t('door_button')}
           </Button>
+          <Box as="button" type="button" onClick={() => { setPhase((ph) => ph); startHandoff(); }}
+            fontFamily="mono" fontSize="12px" color={colors.text.muted} textAlign="left"
+            _hover={{ color: colors.accent.signal }}>
+            {t('door_use_phone')}
+          </Box>
           <Checkbox isChecked={remember} onChange={(e) => setRemember(e.target.checked)}
             sx={{ '.chakra-checkbox__control': { borderColor: colors.surface.lineStrong, _checked: { bg: colors.accent.signal, borderColor: colors.accent.signal, color: colors.text.inverse } } }}>
             <Text fontFamily="mono" fontSize="12px" color={colors.text.muted}>{t('door_remember')}</Text>
@@ -275,7 +280,7 @@ const Door = () => {
           )}
         </HStack>
 
-        {phase === 'nowallet' && qr && (
+        {qr && (
           <VStack align="start" spacing={3} pt={4} borderTop="1px solid" borderColor={colors.surface.line} w="100%">
             <Text fontFamily="mono" fontSize="12px" color={colors.text.primary}>{t('door_phone')}</Text>
             <Text fontFamily="mono" fontSize="11px" color={colors.text.muted} maxW="360px">{t('door_phone_line')}</Text>

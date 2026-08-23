@@ -86,7 +86,7 @@ const briefing = async () => {
     const f = j?.facts;
     if (!f) return null;
     const h = f.holders || {};
-    const named = Object.fromEntries((j.wallets || []).map((w) => [w.address, `${w.burro || 'origin'} · ${String(w.label || '').toLowerCase()}`]));
+    const named = Object.fromEntries((j.wallets || []).map((w) => [w.address, w.burro ? `${w.burro} · ${String(w.label || '').toLowerCase()}` : String(w.label || 'origin').toLowerCase()]));
     const ago = (t) => {
       const sec = Math.max(0, Math.floor(Date.now() / 1000) - t);
       if (sec < 3600) return `${Math.floor(sec / 60)}m ago`;
@@ -96,7 +96,7 @@ const briefing = async () => {
     const tape = (j.trades || []).slice(0, 8)
       .map((t) => `${ago(t.t)} ${t.kind} ${Math.round(t.usd)} usd by ${named[t.wallet] || 'a holder'}`)
       .join('; ');
-    const wallets = (j.wallets || []).map((w) => `${w.burro || 'origin'} · ${String(w.label || '').toLowerCase()} since ${w.since}`).join('; ');
+    const wallets = (j.wallets || []).map((w) => `${w.burro ? w.burro + ' · ' : ''}${String(w.label || 'origin').toLowerCase()} since ${w.since}`).join('; ');
     return [
       `public numbers this minute, repeat only if asked: price ${f.priceUsd} usd, liquidity ${Math.round(f.liquidityUsd || 0)} usd, day volume ${Math.round(f.volume24Usd || 0)} usd, holders ${h.count ?? 'unknown'}, day trades ${f.trades?.h24 ? f.trades.h24.buys + ' buys ' + f.trades.h24.sells + ' sells' : 'unknown'}.`,
       wallets ? `the studio's published wallets: ${wallets}.` : null,

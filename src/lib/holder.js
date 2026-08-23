@@ -39,7 +39,7 @@ export const check = async (patch) => {
       if (json?.reason === 'no session') return { state: 'out' };
       return { state: 'quiet', error: json?.error || null };
     }
-    return { state: json.eligible ? 'in' : 'under', holder: json.holder, threshold: json.threshold, balance: json.balance };
+    return { state: json.eligible ? 'in' : 'under', holder: json.holder, threshold: json.threshold, balance: json.balance, sol: json.sol ?? null, wallet: json.wallet || null };
   } catch {
     return { state: 'quiet' };
   }
