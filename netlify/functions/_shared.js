@@ -25,9 +25,14 @@ export const MINT = 'EdBEwPyso39z2ow59frpuLUVz5axm61dnqAeAuxYpump';
 export const supabaseUrl = () => process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || null;
 
 export const serverKey = () => {
+  // SERVICE_ROLE leads on purpose. The studio's SUPABASE_SECRET_KEY has been
+  // answering 401 since August and it was copied here alongside the good key,
+  // and this function takes the FIRST rung rather than falling through. The
+  // proven key goes first, the doubtful one is the spare. If the secret key
+  // is ever reissued and preferred, swap the order and say why here.
   const ladder = [
-    ['SUPABASE_SECRET_KEY', process.env.SUPABASE_SECRET_KEY],
     ['SUPABASE_SERVICE_ROLE_KEY', process.env.SUPABASE_SERVICE_ROLE_KEY],
+    ['SUPABASE_SECRET_KEY', process.env.SUPABASE_SECRET_KEY],
   ].filter(([, v]) => Boolean(v));
   return ladder[0] || [null, null];
 };
