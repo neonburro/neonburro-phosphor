@@ -9,6 +9,7 @@
 
 import { Box, HStack, Text } from '@chakra-ui/react';
 import { Link, useLocation } from 'react-router-dom';
+import { FiPocket, FiMessageSquare } from 'react-icons/fi';
 import { useState } from 'react';
 import colors from '../theme/colors';
 import { RAIL, EASE } from '../theme/layout';
@@ -73,10 +74,13 @@ const MuskChip = () => {
 // same three words in the header on a desktop. The epoch tab walks straight
 // to his desk in the coin room. This is the shape the future app downloads
 // with, the site is the beta and dresses like it.
+// Icons only, Tyler's call. The pill is transparent glass, each seat a
+// rounded square, the words live in aria labels where a screen reader finds
+// them and a screen stays clean.
 const TABS = [
-  { id: 'wallet', to: '/wallet/', key: 'nav_wallet' },
-  { id: 'rooms', to: '/room/', key: 'nav_rooms' },
-  { id: 'epoch', to: '/room/?r=the-coin', key: 'nav_epoch' },
+  { id: 'wallet', to: '/wallet/', key: 'nav_wallet', icon: 'pocket' },
+  { id: 'rooms', to: '/room/', key: 'nav_rooms', icon: 'talk' },
+  { id: 'epoch', to: '/room/?r=the-coin', key: 'nav_epoch', icon: 'epoch' },
 ];
 
 const AppNav = ({ pathname, search }) => {
@@ -94,32 +98,29 @@ const AppNav = ({ pathname, search }) => {
       left="50%"
       transform="translateX(-50%)"
       zIndex={850}
-      spacing={1}
-      px={1.5}
-      py={1.5}
-      borderRadius="full"
-      bg="rgba(20,20,22,0.92)"
+      spacing={1.5}
+      px={2}
+      py={2}
+      borderRadius="20px"
+      bg="rgba(11,11,12,0.35)"
       border="1px solid"
       borderColor={colors.surface.line}
-      backdropFilter="blur(12px)"
-      boxShadow="0 10px 30px rgba(0,0,0,0.45)"
+      backdropFilter="blur(14px) saturate(140%)"
+      boxShadow="0 10px 30px rgba(0,0,0,0.35)"
     >
       {TABS.map((tab) => (
-        <Box key={tab.id} as={Link} to={tab.to}
-          px={4} py={1.5} borderRadius="full"
+        <Box key={tab.id} as={Link} to={tab.to} aria-label={t(tab.key)} title={t(tab.key)}
+          w="42px" h="42px" display="grid" placeItems="center" borderRadius="14px"
           bg={active(tab) ? colors.accent.signalAlpha[16] : 'transparent'}
           border="1px solid" borderColor={active(tab) ? colors.accent.signalAlpha[32] : 'transparent'}
           transition={`background 200ms ${EASE}, border-color 200ms ${EASE}`}
-          _hover={{ textDecoration: 'none', bg: 'rgba(255,255,255,0.05)' }}>
-          <HStack spacing={2}>
-            {tab.id === 'epoch' && (
-              <Box as="img" src="https://neonburro.com/token/epoch-avatar.webp" alt="" w="16px" h="16px" borderRadius="6px" objectFit="cover" />
-            )}
-            <Text fontFamily="mono" fontSize="12px" fontWeight="500"
-              color={active(tab) ? colors.accent.signal : colors.text.secondary}>
-              {t(tab.key)}
-            </Text>
-          </HStack>
+          _hover={{ textDecoration: 'none', bg: 'rgba(255,255,255,0.06)' }}>
+          {tab.icon === 'pocket' && <FiPocket size={18} color={active(tab) ? colors.accent.signal : colors.text.secondary} />}
+          {tab.icon === 'talk' && <FiMessageSquare size={18} color={active(tab) ? colors.accent.signal : colors.text.secondary} />}
+          {tab.icon === 'epoch' && (
+            <Box as="img" src="https://neonburro.com/token/epoch-avatar.webp" alt="" w="24px" h="24px" borderRadius="8px" objectFit="cover"
+              border="1px solid" borderColor={active(tab) ? colors.accent.signalAlpha[32] : 'transparent'} />
+          )}
         </Box>
       ))}
     </HStack>

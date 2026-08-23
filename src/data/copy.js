@@ -20,7 +20,7 @@ export const LANGS = [
 
 export const COPY = {
   en: {
-    door_kicker: 'burros. • the stacks',
+    door_kicker: 'phosphor. • by neonburro',
     door_title: 'a room under the range.',
     door_line: 'hold enough NEONBURRO and the door knows you. nothing to type. nothing to remember. a dollar is a rumour up here.',
     door_button: 'verify your wallet',
@@ -82,7 +82,7 @@ export const COPY = {
     shell_holders: 'holders in the room',
   },
   ja: {
-    door_kicker: 'burros. • 書庫',
+    door_kicker: 'phosphor. • by neonburro',
     door_title: '山の下の部屋。',
     door_line: 'NEONBURROを十分に持っていれば、扉はあなたを知っている。入力なし。記憶なし。ここではドルは噂にすぎない。',
     door_button: 'ウォレットを確認',
@@ -145,7 +145,7 @@ export const COPY = {
   },
 
   zh: {
-    door_kicker: 'burros. • 书库',
+    door_kicker: 'phosphor. • by neonburro',
     door_title: '山脉之下的一间屋子。',
     door_line: '持有足够的 NEONBURRO，这扇门就认得你。无需输入。无需记住。在这里，美元只是个传闻。',
     door_button: '验证钱包',

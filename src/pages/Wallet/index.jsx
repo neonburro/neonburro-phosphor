@@ -93,14 +93,14 @@ const Wallet = () => {
       <Grid templateColumns={{ base: '1fr 1fr', md: 'repeat(3, 1fr)' }} gap={{ base: 4, md: 6 }}>
         <VStack align="start" spacing={1} p={4} borderRadius="16px" bg={colors.surface.raised} border="1px solid" borderColor={colors.surface.line}>
           <Text {...kicker} color={colors.text.muted}>{t('wallet_holding')}</Text>
-          <Text fontFamily={MONO} fontSize={{ base: '18px', md: '22px' }} fontWeight="600" color={colors.text.primary} sx={{ fontVariantNumeric: 'tabular-nums' }}>
+          <Text fontFamily={MONO} fontSize={{ base: '18px', md: '22px' }} fontWeight="600" color={colors.accent.money} sx={{ fontVariantNumeric: 'tabular-nums' }}>
             {whole(holder.balance)}
           </Text>
           <Text fontFamily={MONO} fontSize="10px" color={colors.text.muted}>NEONBURRO{worth != null ? ` · ${t('wallet_worth')} ${compactUsd(worth)}` : ''}</Text>
         </VStack>
         <VStack align="start" spacing={1} p={4} borderRadius="16px" bg={colors.surface.raised} border="1px solid" borderColor={colors.surface.line}>
           <Text {...kicker} color={colors.text.muted}>{t('wallet_sol')}</Text>
-          <Text fontFamily={MONO} fontSize={{ base: '18px', md: '22px' }} fontWeight="600" color={colors.text.primary} sx={{ fontVariantNumeric: 'tabular-nums' }}>
+          <Text fontFamily={MONO} fontSize={{ base: '18px', md: '22px' }} fontWeight="600" color={colors.accent.money} sx={{ fontVariantNumeric: 'tabular-nums' }}>
             {holder.sol == null ? '...' : holder.sol.toFixed(3)}
           </Text>
           <Text fontFamily={MONO} fontSize="10px" color={colors.text.muted}>SOL</Text>
