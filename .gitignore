@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.netlify/
+.env
+.env.local
+.env.*.local
+.DS_Store
+*.log
+
+# Finder duplicates. macOS names a copied file "thing 2" and it slips past a
+# rule written for "thing". Same rule as the studio, same reason.
+*\ 2/
+*\ 2.*

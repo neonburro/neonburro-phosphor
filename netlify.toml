@@ -1,0 +1,32 @@
+# netlify.toml
+# The burrow. Build, functions, one SPA catch all, one hourly sweep.
+
+[build]
+  command = "yarn build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Every wallet the burrow has ever seen gets its balance read again once an
+# hour. Falling under the threshold flips eligible to false and the next page
+# that wallet opens is the door. Nobody is thrown out mid sentence, nobody stays
+# who should not. The per request check in holder-check.js is the fast path,
+# this is the slow one that catches a wallet that stopped visiting.
+[[scheduled_functions]]
+  function = "holder-sweep"
+  cron = "17 * * * *"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Robots-Tag = "noindex"
