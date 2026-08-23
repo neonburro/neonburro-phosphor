@@ -19,7 +19,7 @@
 //
 // No oxford commas, no em dashes.
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Box, Button, Checkbox, HStack, Text, VStack } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
 import colors from '../../theme/colors';
@@ -32,6 +32,7 @@ const SOLFLARE_LINK = `https://solflare.com/ul/v1/browse/${encodeURIComponent(HE
 import { supabase, remembered, setRemembered } from '../../lib/supabase';
 import { useEffect } from 'react';
 import { check, tokens, knownHandle } from '../../lib/holder';
+import QRCode from 'qrcode';
 import { WALLET_LINK } from '../../data/links';
 import { t } from '../../data/copy';
 
@@ -43,6 +44,49 @@ const Door = () => {
   const [remember, setRemember] = useState(remembered());
   const [line, setLine] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [qr, setQr] = useState(null);
+  const qrPoll = useRef(null);
+
+  // The phone signs for this screen. Ask the function for a nonce, draw it as
+  // a QR pointing at /approve/, and poll claim until the phone says yes. The
+  // claim answers once with a one time token that verifyOtp turns into a real
+  // session for the same holder, then the normal check walks this screen in.
+  const startHandoff = async () => {
+    try {
+      const res = await fetch('/.netlify/functions/handoff', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'start' }),
+      });
+      const j = await res.json();
+      if (!j.ok || !j.nonce) return;
+      const url = `https://burros.neonburro.com/approve/?n=${j.nonce}`;
+      const dataUrl = await QRCode.toDataURL(url, { margin: 1, width: 220, color: { dark: '#F4F3F1', light: '#0B0B0C00' } });
+      setQr({ img: dataUrl, nonce: j.nonce });
+      qrPoll.current && clearInterval(qrPoll.current);
+      qrPoll.current = setInterval(async () => {
+        try {
+          const r2 = await fetch('/.netlify/functions/handoff', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'claim', nonce: j.nonce }),
+          });
+          const c = await r2.json();
+          if (c.token_hash && supabase) {
+            clearInterval(qrPoll.current);
+            const { error } = await supabase.auth.verifyOtp({ type: 'email', token_hash: c.token_hash });
+            if (!error) {
+              setPhase('checking');
+              const r3 = await check();
+              if (r3.state === 'in') nav(r3.holder?.handle ? '/room/' : '/hello/');
+              else if (r3.state === 'under') { setLine(t('door_under', { balance: tokens(r3.balance) || '0', threshold: tokens(r3.threshold) || 'enough' })); setPhase('under'); }
+              else { setLine(r3.error ? String(r3.error).toLowerCase() : t('door_quiet')); setPhase('quiet'); }
+            }
+          }
+          if (c.reason === 'expired') { clearInterval(qrPoll.current); setQr(null); }
+        } catch { /* next poll */ }
+      }, 3000);
+    } catch { /* the pills remain */ }
+  };
+  useEffect(() => () => { qrPoll.current && clearInterval(qrPoll.current); }, []);
 
   // A session that already exists is used, not re signed. The first cut asked
   // the wallet for a fresh signature on every tap, so a person whose sign in
@@ -82,7 +126,7 @@ const Door = () => {
     // happened. Only a signed out visitor is sent to the wallet sheet.
     const { data: existing } = supabase ? await supabase.auth.getSession() : { data: null };
     if (!existing?.session) {
-      if (!detect()) { setLine(t('door_not_found')); setPhase('nowallet'); return; }
+      if (!detect()) { setLine(t('door_not_found')); setPhase('nowallet'); startHandoff(); return; }
     }
     setPhase('signing');
     try {
@@ -111,8 +155,18 @@ const Door = () => {
   };
 
   return (
-    <VStack flex="1" justify="center" align="stretch" px={RAIL} spacing={0} pb={24}>
-      <VStack align="start" spacing={6} maxW={MEASURE} w="100%">
+    <VStack flex="1" justify="center" align="stretch" px={RAIL} spacing={0} pb={24} position="relative">
+      {/* The audience. The theater of burros in lime glasses, ghosted to six
+          percent behind the door, all of them watching whoever arrives. Same
+          plate as the share card, served from the studio, pull from one. A
+          gradient keeps the reading column dark and the words in front. */}
+      <Box position="absolute" inset={0} pointerEvents="none" aria-hidden="true"
+        bgImage="url('https://neonburro.com/token/holders-in-glasses.webp')"
+        bgSize="cover" bgPosition="center 30%" opacity={0.06}
+        filter="grayscale(0.4)" />
+      <Box position="absolute" inset={0} pointerEvents="none" aria-hidden="true"
+        bgGradient={`linear(to-r, ${colors.surface.base} 0%, rgba(11,11,12,0.55) 55%, rgba(11,11,12,0.2) 100%)`} />
+      <VStack align="start" spacing={6} maxW={MEASURE} w="100%" position="relative" zIndex={1}>
         <Text {...kicker} color={colors.accent.signal}>{t('door_kicker')}</Text>
         <HStack spacing={{ base: 4, md: 5 }} align="center">
           <Box
@@ -204,6 +258,19 @@ const Door = () => {
             <Text fontFamily="mono" fontSize="12px" color={colors.text.secondary}>{t('door_get_one_plain')}</Text>
           )}
         </HStack>
+
+        {phase === 'nowallet' && qr && (
+          <VStack align="start" spacing={3} pt={4} borderTop="1px solid" borderColor={colors.surface.line} w="100%">
+            <Text fontFamily="mono" fontSize="12px" color={colors.text.primary}>{t('door_phone')}</Text>
+            <Text fontFamily="mono" fontSize="11px" color={colors.text.muted} maxW="360px">{t('door_phone_line')}</Text>
+            <Box p={3} bg={colors.surface.raised} border="1px solid" borderColor={colors.surface.line} borderRadius="16px">
+              <Box as="img" src={qr.img} alt="scan with your signed in phone" w="180px" h="180px" display="block" />
+            </Box>
+            <Text fontFamily="mono" fontSize="10px" color={colors.text.muted}>
+              {t('door_phone_waiting')}<Box as="span" sx={{ '@keyframes dots': { '0%': { opacity: 0.2 }, '50%': { opacity: 1 }, '100%': { opacity: 0.2 } }, animation: 'dots 1.6s infinite' }}> ···</Box>
+            </Text>
+          </VStack>
+        )}
 
         {(phase === 'nowallet' || phase === 'quiet') && (
           <Text fontFamily="mono" fontSize="10px" color={colors.text.muted}>

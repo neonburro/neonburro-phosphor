@@ -20,6 +20,7 @@ import Shell from './components/Shell';
 import Door from './pages/Door';
 import Hello from './pages/Hello';
 import Room from './pages/Room';
+import Approve from './pages/Approve';
 
 const App = () => (
   <BrowserRouter>
@@ -28,6 +29,7 @@ const App = () => (
         <Route path="/" element={<Door />} />
         <Route path="/hello/" element={<Hello />} />
         <Route path="/room/" element={<Room />} />
+        <Route path="/approve/" element={<Approve />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Shell>

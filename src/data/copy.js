@@ -61,6 +61,9 @@ export const COPY = {
     room_send: 'send',
     room_nothing: 'nothing said in here yet. you know what to do.',
     room_epoch_pin: 'epoch keeps this desk. the coin, the pool, the record. ask.',
+    door_phone: 'or sign in with your phone',
+    door_phone_line: 'already in the stacks on your phone? scan this and tap yes. this screen walks in as you.',
+    door_phone_waiting: 'waiting for your phone',
     shell_holders: 'holders in the room',
   },
   ja: {
@@ -105,6 +108,9 @@ export const COPY = {
     room_send: '送る',
     room_nothing: 'まだ誰も何も言っていない。どうぞ。',
     room_epoch_pin: 'この机はepochのもの。コインとプールと記録。聞いて。',
+    door_phone: 'または電話でサインイン',
+    door_phone_line: '電話ですでに書庫にいる？これをスキャンしてはいを押す。この画面があなたとして入る。',
+    door_phone_waiting: '電話を待っている',
     shell_holders: '部屋にいる保有者',
   },
 
@@ -150,6 +156,9 @@ export const COPY = {
     room_send: '发送',
     room_nothing: '这里还没人说过话。你知道该做什么。',
     room_epoch_pin: '这张桌子是 epoch 的。币、池子、记录。尽管问。',
+    door_phone: '或者用手机登录',
+    door_phone_line: '手机已经在书库里了？扫这个码然后点是。这个屏幕就会以你的身份进来。',
+    door_phone_waiting: '等待手机确认',
     shell_holders: '屋里的持有者',
   },
 };
