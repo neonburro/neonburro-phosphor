@@ -24,7 +24,7 @@ import { Box, Button, Checkbox, HStack, Text, VStack } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
 import colors from '../../theme/colors';
 import { RAIL, MEASURE, EASE } from '../../theme/layout';
-import { signIn, detect, addressOf, short } from '../../lib/wallet';
+import { signIn, detect, addressOf, short, seen } from '../../lib/wallet';
 const EPOCH_FACE = 'https://neonburro.com/token/epoch-avatar.webp';
 const HERE = typeof window !== 'undefined' ? window.location.href : 'https://burros.neonburro.com/';
 const PHANTOM_LINK = `https://phantom.app/ul/browse/${encodeURIComponent(HERE)}?ref=${encodeURIComponent(HERE)}`;
@@ -46,7 +46,7 @@ const Door = () => {
 
   const go = async () => {
     setRemembered(remember);
-    if (!detect()) { setPhase('nowallet'); return; }
+    if (!detect()) { setLine(t('door_not_found')); setPhase('nowallet'); return; }
     setPhase('signing');
     try {
       const session = await signIn();
@@ -99,7 +99,7 @@ const Door = () => {
           {t('door_line')}
         </Text>
 
-        {(phase === 'under' || phase === 'quiet') && (
+        {(phase === 'under' || phase === 'quiet' || phase === 'nowallet') && (
           <Text fontFamily="mono" fontSize="13px" lineHeight="1.7" color={colors.text.primary} borderLeft="2px solid" borderColor={colors.accent.signal} pl={4}>
             {line}
           </Text>
@@ -167,6 +167,12 @@ const Door = () => {
             <Text fontFamily="mono" fontSize="12px" color={colors.text.secondary}>{t('door_get_one_plain')}</Text>
           )}
         </HStack>
+
+        {(phase === 'nowallet' || phase === 'quiet') && (
+          <Text fontFamily="mono" fontSize="10px" color={colors.text.muted}>
+            wallets seen: {seen().join(' · ') || 'none'}
+          </Text>
+        )}
 
         {!supabase && (
           <Text fontFamily="mono" fontSize="11px" color={colors.text.muted}>

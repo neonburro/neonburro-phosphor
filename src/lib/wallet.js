@@ -26,6 +26,52 @@
 
 import { supabase } from './supabase';
 
+// ── THE WALLET STANDARD ─────────────────────────────────────────────────────
+// Old wallets hang themselves on window.solana. New ones, jupiter mobile
+// among them, announce through the wallet standard instead: the wallet
+// listens for the app's ready event and registers itself through a callback.
+// The night this file taught the door desktop extensions, tyler stood inside
+// jupiter mobile's browser pressing a button that could not see the wallet
+// wrapped around it. This collector runs at module load and keeps listening,
+// wallets that arrive late still land in the list.
+const standardWallets = [];
+if (typeof window !== 'undefined') {
+  try {
+    const api = {
+      register: (...ws) => {
+        for (const w of ws) if (w && !standardWallets.includes(w)) standardWallets.push(w);
+        return () => {};
+      },
+    };
+    window.addEventListener('wallet-standard:register-wallet', (event) => {
+      try { event.detail(api); } catch { /* a wallet that cannot register */ }
+    });
+    window.dispatchEvent(new CustomEvent('wallet-standard:app-ready', { detail: api }));
+  } catch { /* very old browser, the globals below still work */ }
+}
+
+const isSolanaStandard = (w) => Array.isArray(w?.chains) && w.chains.some((c) => String(c).startsWith('solana:'))
+  && (w.features?.['solana:signIn'] || w.features?.['solana:signMessage']);
+
+// Supabase expects the injected provider shape, signIn taking a SIWS input
+// and returning one output. A standard wallet returns an array of outputs
+// from its feature, so this adapter unwraps it, and connects first when the
+// wallet has no account exposed yet.
+const adaptStandard = (w) => {
+  const signInF = w.features?.['solana:signIn'];
+  const connectF = w.features?.['standard:connect'];
+  if (!signInF) return null;
+  return {
+    signIn: async (input) => {
+      if (connectF && (!w.accounts || w.accounts.length === 0)) {
+        try { await connectF.connect(); } catch { /* the sign in asks again */ }
+      }
+      const out = await signInF.signIn(input || {});
+      return Array.isArray(out) ? out[0] : out;
+    },
+  };
+};
+
 export const STATEMENT = 'the burrow wants to know this wallet is yours. nothing moves. nothing is spent.';
 
 export const detect = () => {
@@ -41,7 +87,27 @@ export const detect = () => {
   if (window.solflare) return { kind: 'solflare', wallet: window.solflare };
   if (window.jupiter?.solana) return { kind: 'jupiter', wallet: window.jupiter.solana };
   if (window.backpack) return { kind: 'backpack', wallet: window.backpack };
+  const standard = standardWallets.filter(isSolanaStandard);
+  const pick = standard.find((w) => /jupiter/i.test(w.name || '')) || standard[0];
+  if (pick) {
+    const adapted = adaptStandard(pick);
+    if (adapted) return { kind: `standard:${(pick.name || 'wallet').toLowerCase()}`, wallet: adapted };
+  }
   return null;
+};
+
+// What the door can see, for the diagnostics line. Names, never keys.
+export const seen = () => {
+  if (typeof window === 'undefined') return [];
+  const names = [];
+  if (window.solana) names.push(window.solana.isPhantom ? 'phantom' : 'solana');
+  if (window.phantom?.solana && !window.solana) names.push('phantom');
+  if (window.braveSolana) names.push('brave');
+  if (window.solflare) names.push('solflare');
+  if (window.jupiter?.solana) names.push('jupiter');
+  if (window.backpack) names.push('backpack');
+  for (const w of standardWallets.filter(isSolanaStandard)) names.push(`${(w.name || 'standard').toLowerCase()}·std`);
+  return [...new Set(names)];
 };
 
 // Sign in. Resolves to the Supabase session or throws with a sentence a
