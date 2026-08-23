@@ -72,7 +72,7 @@ const adaptStandard = (w) => {
   };
 };
 
-export const STATEMENT = 'the burrow wants to know this wallet is yours. nothing moves. nothing is spent.';
+export const STATEMENT = 'the stacks want to know this wallet is yours. nothing moves. nothing is spent.';
 
 export const detect = () => {
   if (typeof window === 'undefined') return null;

@@ -29,7 +29,10 @@ export const check = async (patch) => {
       body: JSON.stringify(patch || {}),
     });
     const json = await res.json();
-    if (!res.ok || !json.ok) return { state: json?.reason === 'no session' ? 'out' : 'quiet', error: json?.error };
+    if (!res.ok || !json.ok) {
+      if (json?.reason === 'no session') return { state: 'out' };
+      return { state: 'quiet', error: json?.error || null };
+    }
     return { state: json.eligible ? 'in' : 'under', holder: json.holder, threshold: json.threshold, balance: json.balance };
   } catch {
     return { state: 'quiet' };

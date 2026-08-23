@@ -30,6 +30,7 @@ const HERE = typeof window !== 'undefined' ? window.location.href : 'https://bur
 const PHANTOM_LINK = `https://phantom.app/ul/browse/${encodeURIComponent(HERE)}?ref=${encodeURIComponent(HERE)}`;
 const SOLFLARE_LINK = `https://solflare.com/ul/v1/browse/${encodeURIComponent(HERE)}?ref=${encodeURIComponent(HERE)}`;
 import { supabase, remembered, setRemembered } from '../../lib/supabase';
+import { useEffect } from 'react';
 import { check, tokens } from '../../lib/holder';
 import { WALLET_LINK } from '../../data/links';
 import { t } from '../../data/copy';
@@ -42,14 +43,50 @@ const Door = () => {
   const [remember, setRemember] = useState(remembered());
   const [line, setLine] = useState(null);
   const [copied, setCopied] = useState(false);
+
+  // A session that already exists is used, not re signed. The first cut asked
+  // the wallet for a fresh signature on every tap, so a person whose sign in
+  // SUCCEEDED but whose balance check stumbled was sent around the loop
+  // again, signing forever. On load: session present, run the check straight
+  // away and either walk in, say under, or say exactly what failed.
+  useEffect(() => {
+    let live = true;
+    (async () => {
+      if (!supabase) return;
+      const { data } = await supabase.auth.getSession();
+      if (!data?.session || !live) return;
+      setAddr(addressOf(data.session.user));
+      setPhase('checking');
+      const r = await check();
+      if (!live) return;
+      if (r.state === 'in') { nav(r.holder?.handle ? '/room/' : '/hello/'); return; }
+      if (r.state === 'under') {
+        setLine(t('door_under', { balance: tokens(r.balance) || '0', threshold: tokens(r.threshold) || 'enough' }));
+        setPhase('under');
+        return;
+      }
+      if (r.state === 'quiet') {
+        setLine(r.error ? String(r.error).toLowerCase() : t('door_quiet'));
+        setPhase('quiet');
+        return;
+      }
+      setPhase('resting');
+    })();
+    return () => { live = false; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [addr, setAddr] = useState(null);
 
   const go = async () => {
     setRemembered(remember);
-    if (!detect()) { setLine(t('door_not_found')); setPhase('nowallet'); return; }
+    // A living session skips the wallet entirely, the signature already
+    // happened. Only a signed out visitor is sent to the wallet sheet.
+    const { data: existing } = supabase ? await supabase.auth.getSession() : { data: null };
+    if (!existing?.session) {
+      if (!detect()) { setLine(t('door_not_found')); setPhase('nowallet'); return; }
+    }
     setPhase('signing');
     try {
-      const session = await signIn();
+      const session = existing?.session || await signIn();
       setAddr(addressOf(session?.user));
       setPhase('checking');
       const r = await check();
@@ -62,7 +99,7 @@ const Door = () => {
         setPhase('under');
         return;
       }
-      setLine(t('door_quiet'));
+      setLine(r.error ? String(r.error).toLowerCase() : t('door_quiet'));
       setPhase('quiet');
     } catch (err) {
       if (err.message === 'no wallet') { setPhase('nowallet'); return; }
