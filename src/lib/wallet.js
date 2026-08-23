@@ -30,24 +30,34 @@ export const STATEMENT = 'the burrow wants to know this wallet is yours. nothing
 
 export const detect = () => {
   if (typeof window === 'undefined') return null;
-  const candidates = [
-    window.phantom?.solana,
-    window.solana,
-    window.solflare,
-    window.backpack,
-    window.jupiter?.solana,
-  ];
-  return candidates.find((w) => w && (w.isPhantom || w.isSolflare || w.isBackpack || typeof w.signIn === 'function' || typeof w.signMessage === 'function')) || null;
+  // The shapes supabase documents: default detection reads window.solana, and
+  // for the rest you hand over the CONTAINER the vendor ships, window.phantom
+  // for phantom, window.braveSolana for brave. Solflare injects window.solflare
+  // which is itself the provider. Tyler's own chrome runs solflare only, which
+  // is how the first version of this file was caught passing the wrong thing.
+  if (window.solana) return { kind: 'default', wallet: null };
+  if (window.phantom?.solana) return { kind: 'phantom', wallet: window.phantom };
+  if (window.braveSolana) return { kind: 'brave', wallet: window.braveSolana };
+  if (window.solflare) return { kind: 'solflare', wallet: window.solflare };
+  if (window.jupiter?.solana) return { kind: 'jupiter', wallet: window.jupiter.solana };
+  if (window.backpack) return { kind: 'backpack', wallet: window.backpack };
+  return null;
 };
 
 // Sign in. Resolves to the Supabase session or throws with a sentence a
-// person can read.
+// person can read. Every failure is also logged with its real shape, the
+// first cut swallowed errors into a generic quiet line and cost a night.
 export const signIn = async () => {
-  if (!supabase) throw new Error('the burrow is not connected to its database yet');
-  const wallet = detect();
-  if (!wallet) throw new Error('no wallet');
-  const { data, error } = await supabase.auth.signInWithWeb3({ chain: 'solana', statement: STATEMENT, wallet });
-  if (error) throw new Error(error.message || 'the wallet did not sign');
+  if (!supabase) throw new Error('the room is not connected to its database yet');
+  const found = detect();
+  if (!found) throw new Error('no wallet');
+  const args = { chain: 'solana', statement: STATEMENT };
+  if (found.wallet) args.wallet = found.wallet;
+  const { data, error } = await supabase.auth.signInWithWeb3(args);
+  if (error) {
+    console.error('[wallet] signInWithWeb3', found.kind, error);
+    throw new Error(error.message || 'the wallet did not sign');
+  }
   return data?.session || null;
 };
 

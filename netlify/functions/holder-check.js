@@ -25,7 +25,7 @@
 import { adminClient, balanceOf, threshold, json, corsHeaders } from './_shared.js';
 
 const HANDLE = /^[a-z]{3,6}-\d{2}$/;
-const LANGS = new Set(['en', 'ja', 'es']);
+const LANGS = new Set(['en', 'ja', 'zh', 'es']);
 
 const addressOf = (user) => {
   const m = user?.user_metadata || {};

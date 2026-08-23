@@ -25,6 +25,10 @@ import { useNavigate } from 'react-router-dom';
 import colors from '../../theme/colors';
 import { RAIL, MEASURE, EASE } from '../../theme/layout';
 import { signIn, detect, addressOf, short } from '../../lib/wallet';
+const EPOCH_FACE = 'https://neonburro.com/token/epoch-avatar.webp';
+const HERE = typeof window !== 'undefined' ? window.location.href : 'https://burros.neonburro.com/';
+const PHANTOM_LINK = `https://phantom.app/ul/browse/${encodeURIComponent(HERE)}?ref=${encodeURIComponent(HERE)}`;
+const SOLFLARE_LINK = `https://solflare.com/ul/v1/browse/${encodeURIComponent(HERE)}?ref=${encodeURIComponent(HERE)}`;
 import { supabase, remembered, setRemembered } from '../../lib/supabase';
 import { check, tokens } from '../../lib/holder';
 import { WALLET_LINK } from '../../data/links';
@@ -61,7 +65,9 @@ const Door = () => {
       setPhase('quiet');
     } catch (err) {
       if (err.message === 'no wallet') { setPhase('nowallet'); return; }
-      setLine(t('door_quiet'));
+      // The real sentence, not a shrug. The first cut showed the quiet line
+      // for every failure and made a config error look like weather.
+      setLine(err.message && err.message !== 'the wallet did not sign' ? err.message.toLowerCase() : t('door_quiet'));
       setPhase('quiet');
     }
   };
@@ -70,9 +76,24 @@ const Door = () => {
     <VStack flex="1" justify="center" align="stretch" px={RAIL} spacing={0} pb={24}>
       <VStack align="start" spacing={6} maxW={MEASURE} w="100%">
         <Text {...kicker} color={colors.accent.signal}>{t('door_kicker')}</Text>
-        <Text fontFamily="heading" fontWeight="600" letterSpacing="-0.02em" fontSize={{ base: '34px', md: '48px' }} lineHeight="1.05" color={colors.text.primary}>
-          {t('door_title')}
-        </Text>
+        <HStack spacing={{ base: 4, md: 5 }} align="center">
+          <Box
+            as="img"
+            src={EPOCH_FACE}
+            alt="epoch, keeper of the record"
+            w={{ base: '56px', md: '88px' }}
+            h={{ base: '56px', md: '88px' }}
+            borderRadius="20px"
+            objectFit="cover"
+            bg={colors.surface.raised}
+            border="1px solid"
+            borderColor={colors.surface.line}
+            flexShrink={0}
+          />
+          <Text fontFamily="heading" fontWeight="600" letterSpacing="-0.02em" fontSize={{ base: '32px', md: '48px' }} lineHeight="1.05" color={colors.text.primary}>
+            {t('door_title')}
+          </Text>
+        </HStack>
         <Text fontFamily="body" fontSize={{ base: '15px', md: '16px' }} lineHeight="1.7" color={colors.text.secondary}>
           {t('door_line')}
         </Text>
@@ -100,10 +121,28 @@ const Door = () => {
           </Checkbox>
         </VStack>
 
-        <HStack spacing={2} pt={4} borderTop="1px solid" borderColor={colors.surface.line} w="100%" flexWrap="wrap">
+        <HStack spacing={3} pt={4} borderTop="1px solid" borderColor={colors.surface.line} w="100%" flexWrap="wrap" rowGap={2}>
           <Text fontFamily="mono" fontSize="12px" color={colors.text.muted}>
             {phase === 'nowallet' ? t('door_not_found') : t('door_no_wallet')}
           </Text>
+          {phase === 'nowallet' && (
+            <>
+              {/* A phone has no extension to inject a wallet, so the page
+                  walks itself into the wallet's own browser. Universal links,
+                  phantom and solflare both reopen this exact url inside their
+                  app where window.solana exists and the button works. */}
+              <Box as="a" href={PHANTOM_LINK} fontFamily="mono" fontSize="12px" color={colors.accent.signal}
+                border="1px solid" borderColor={colors.accent.signalAlpha[32]} borderRadius="full" px={3} py={1}
+                _hover={{ bg: colors.accent.signalAlpha[8] }}>
+                {t('door_open_phantom')}
+              </Box>
+              <Box as="a" href={SOLFLARE_LINK} fontFamily="mono" fontSize="12px" color={colors.accent.signal}
+                border="1px solid" borderColor={colors.accent.signalAlpha[32]} borderRadius="full" px={3} py={1}
+                _hover={{ bg: colors.accent.signalAlpha[8] }}>
+                {t('door_open_solflare')}
+              </Box>
+            </>
+          )}
           {WALLET_LINK ? (
             <Box as="a" href={WALLET_LINK} target="_blank" rel="noopener noreferrer"
               fontFamily="mono" fontSize="12px" color={colors.accent.signal}
