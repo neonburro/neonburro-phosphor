@@ -16,11 +16,15 @@ import { LANGS, currentLang, setLang } from '../data/copy';
 
 const Shell = ({ children }) => {
   const { pathname } = useLocation();
+  // The room is a messenger and a messenger owns its scroll. On /room/ the
+  // shell locks to the viewport and the feed scrolls inside its pane. Every
+  // other page scrolls like a page.
+  const locked = pathname.startsWith('/room');
   const [lang, setLangState] = useState(currentLang());
   const pick = (id) => { setLang(id); setLangState(id); window.location.reload(); };
 
   return (
-    <Box minH="100dvh" bg={colors.surface.base} display="flex" flexDirection="column">
+    <Box minH="100dvh" h={locked ? '100dvh' : undefined} overflow={locked ? 'hidden' : undefined} bg={colors.surface.base} display="flex" flexDirection="column">
       <HStack as="header" justify="space-between" px={RAIL} pt={5} pb={2}>
         <HStack as={Link} to="/" spacing={2.5} _hover={{ textDecoration: 'none' }}>
           <Box w="12px" h="12px" borderRadius="full" bg={colors.accent.signal} boxShadow={`0 0 10px ${colors.accent.signalAlpha[32]}`} />
@@ -28,10 +32,10 @@ const Shell = ({ children }) => {
             burros<Box as="span" color={colors.accent.signal}>.</Box>
           </Text>
         </HStack>
-        <HStack spacing={3}>
+        <HStack spacing={{ base: 2, md: 3 }}>
           {LANGS.map((l) => (
             <Box key={l.id} as="button" type="button" onClick={() => pick(l.id)}
-              fontFamily="mono" fontSize="11px" letterSpacing="0.08em"
+              fontFamily="mono" fontSize={{ base: '10px', md: '11px' }} letterSpacing="0.08em"
               color={lang === l.id ? colors.text.primary : colors.text.muted}
               borderBottom="1px solid" borderColor={lang === l.id ? colors.accent.signal : 'transparent'}
               pb="1px" transition={`color 220ms ${EASE}`}
@@ -41,7 +45,7 @@ const Shell = ({ children }) => {
           ))}
         </HStack>
       </HStack>
-      <Box as="main" flex="1" display="flex" flexDirection="column" key={pathname}>
+      <Box as="main" flex="1" minH={0} display="flex" flexDirection="column" key={pathname}>
         {children}
       </Box>
     </Box>
