@@ -34,6 +34,25 @@ import { t } from '../../data/copy';
 const kicker = { fontFamily: 'mono', fontSize: '10px', fontWeight: '500', letterSpacing: '0.2em', textTransform: 'uppercase' };
 const MONO = 'mono';
 const FEED = 'https://neonburro.com/.netlify/functions/token-chart?tf=day&limit=30';
+const MINT = 'EdBEwPyso39z2ow59frpuLUVz5axm61dnqAeAuxYpump';
+const SOL_MINT = 'So11111111111111111111111111111111111111112';
+const PLUGIN_SRC = 'https://plugin.jup.ag/plugin-v1.js';
+
+// The plugin script loads once, on the first open, never at page load. A
+// wallet tab that has not been asked to buy anything should cost nothing.
+let pluginPromise = null;
+const loadPlugin = () => {
+  if (pluginPromise) return pluginPromise;
+  pluginPromise = new Promise((resolve, reject) => {
+    const el = document.createElement('script');
+    el.src = PLUGIN_SRC;
+    el.async = true;
+    el.onload = () => resolve(window.Jupiter);
+    el.onerror = () => { pluginPromise = null; reject(new Error('plugin')); };
+    document.head.appendChild(el);
+  });
+  return pluginPromise;
+};
 
 const compactUsd = (n) => (n == null ? null : `$${Number(n).toLocaleString('en-US', { notation: 'compact', maximumFractionDigits: 1 })}`);
 const whole = (n) => (n == null ? '...' : Math.round(n).toLocaleString('en-US'));
@@ -50,6 +69,31 @@ const Wallet = () => {
   const holder = useHolder();
   const [feed, setFeed] = useState(null);
   const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
+  const [desk, setDesk] = useState('closed');
+
+  // The buy desk. Jupiter's plugin lands in the container below, pinned to
+  // NEONBURRO on the receiving side, the visitor's own wallet connects inside
+  // it and signs. This site holds nothing at any point, which is the whole
+  // legal shape of the desk. A platform fee waits on the swap referral
+  // account, see the note in links.js when it exists.
+  const openDesk = async () => {
+    setDesk('opening');
+    try {
+      const Jupiter = await loadPlugin();
+      Jupiter.init({
+        displayMode: 'integrated',
+        integratedTargetId: 'jupiter-desk',
+        formProps: {
+          initialInputMint: SOL_MINT,
+          initialOutputMint: MINT,
+          fixedMint: MINT,
+        },
+      });
+      setDesk('open');
+    } catch {
+      setDesk('failed');
+    }
+  };
 
   useEffect(() => {
     if (holder.state === 'out' || holder.state === 'under') nav('/');
@@ -124,11 +168,30 @@ const Wallet = () => {
         </VStack>
       </Grid>
 
-      {/* the buy desk, phase B's marked seat */}
-      <Box p={5} borderRadius="16px" border="1px dashed" borderColor={colors.accent.signalAlpha[32]} bg={colors.accent.signalAlpha[8]}>
-        <VStack align="start" spacing={1}>
-          <Text fontFamily="heading" fontWeight="600" fontSize="16px" color={colors.text.primary}>{t('wallet_buy')}</Text>
-          <Text fontFamily={MONO} fontSize="11px" color={colors.text.secondary}>{t('wallet_buy_soon')}</Text>
+      {/* the buy desk, open for business */}
+      <Box p={5} borderRadius="16px" border="1px solid" borderColor={desk === 'open' ? colors.surface.line : colors.accent.signalAlpha[32]} bg={desk === 'open' ? colors.surface.raised : colors.accent.signalAlpha[8]}>
+        <VStack align="stretch" spacing={3}>
+          <HStack justify="space-between" flexWrap="wrap" rowGap={2}>
+            <VStack align="start" spacing={1}>
+              <Text fontFamily="heading" fontWeight="600" fontSize="16px" color={colors.text.primary}>{t('wallet_buy')}</Text>
+              <Text fontFamily={MONO} fontSize="11px" color={colors.text.secondary}>{t('wallet_buy_note')}</Text>
+            </VStack>
+            {desk !== 'open' && (
+              <Box as="button" type="button" onClick={openDesk}
+                fontFamily="heading" fontWeight="600" fontSize="14px" px={5} h="40px" borderRadius="full"
+                bg={colors.text.primary} color={colors.text.inverse}
+                _hover={{ bg: colors.accent.signal }}
+                opacity={desk === 'opening' ? 0.6 : 1}>
+                {desk === 'opening' ? '...' : t('wallet_buy_open')}
+              </Box>
+            )}
+          </HStack>
+          {desk === 'failed' && (
+            <Text fontFamily={MONO} fontSize="12px" color={colors.text.primary} borderLeft="2px solid" borderColor={colors.accent.signal} pl={3}>
+              {t('wallet_buy_fail')}
+            </Text>
+          )}
+          <Box id="jupiter-desk" minH={desk === 'open' ? '540px' : '0'} borderRadius="12px" overflow="hidden" transition="min-height 300ms" />
         </VStack>
       </Box>
 
