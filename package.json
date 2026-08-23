@@ -10,6 +10,7 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.120.0",
     "@chakra-ui/react": "2.8.2",
     "@emotion/react": "11.11.1",
     "@emotion/styled": "11.11.0",

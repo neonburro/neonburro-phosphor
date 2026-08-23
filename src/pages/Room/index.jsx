@@ -27,9 +27,12 @@
 // dot is the point, the keyboard is the fallback.
 //
 // ── EPOCH ───────────────────────────────────────────────────────────────────
-// In the coin room, one pinned line under the header says whose desk it is.
-// His actual voice is its own build, an agent behind a function with his soul
-// files, and it does not ship half done. The pin is honest furniture.
+// In the coin room, one pinned line under the header says whose desk it is,
+// and the desk answers. After a send in the-coin the client knocks on
+// netlify/functions/epoch.js, fire and forget, and his reply arrives through
+// realtime like anybody's. His handle renders teal, the room's one accent,
+// because he is the room's one burro. The deep soul files are still their
+// own build, epoch.js carries his v1 and the rules that could not wait.
 //
 // No oxford commas, no em dashes. hue•man with the interpunct.
 
@@ -40,7 +43,7 @@ import colors from '../../theme/colors';
 import { EASE } from '../../theme/layout';
 import { useHolder } from '../../lib/holder';
 import { signOut } from '../../lib/wallet';
-import { fetchRooms, fetchMessages, sendMessage, onMessage } from '../../lib/rooms';
+import { fetchRooms, fetchMessages, sendMessage, onMessage, wakeEpoch } from '../../lib/rooms';
 import { t, currentLang } from '../../data/copy';
 
 const kicker = { fontFamily: 'mono', fontSize: '10px', fontWeight: '500', letterSpacing: '0.2em', textTransform: 'uppercase' };
@@ -144,6 +147,7 @@ const Room = () => {
     setDraft('');
     const row = await sendMessage(open, body);
     if (row) setMsgs((prev) => (prev.some((x) => x.id === row.id) ? prev : [...prev, row]));
+    if (row) wakeEpoch(open);
   };
 
   if (holder.state !== 'in') {
@@ -246,7 +250,7 @@ const Room = () => {
               {grouped.map((g) => (
                 <VStack key={`${g.handle}-${g.items[0].id}`} align={g.mine ? 'end' : 'start'} spacing={1}>
                   {!g.mine && (
-                    <Text fontFamily={MONO} fontSize="11px" fontWeight="500" color={hueOf(g.handle)} px={1}>
+                    <Text fontFamily={MONO} fontSize="11px" fontWeight="500" color={g.handle === 'epoch' ? colors.accent.signal : hueOf(g.handle)} px={1}>
                       {g.handle || '·'}
                     </Text>
                   )}

@@ -60,3 +60,20 @@ export const onMessage = (room, cb) => {
     .subscribe();
   return () => { supabase.removeChannel(channel); };
 };
+
+// Taps Epoch's desk after a message lands in the coin room. Fire and forget,
+// his reply arrives through realtime like anybody's. The function enforces
+// the room, the eligibility and the daily caps, this is just the knock.
+export const wakeEpoch = async (room) => {
+  if (!supabase || room !== 'the-coin') return;
+  try {
+    const { data } = await supabase.auth.getSession();
+    const token = data?.session?.access_token;
+    if (!token) return;
+    fetch('/.netlify/functions/epoch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ room }),
+    }).catch(() => {});
+  } catch { /* the desk stays quiet */ }
+};
