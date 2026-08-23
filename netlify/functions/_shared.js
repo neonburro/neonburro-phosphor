@@ -51,7 +51,16 @@ export const adminClient = () => {
   return createClient(url, key, { auth: { persistSession: false } });
 };
 
-const RPC = () => process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
+// Accepts a full url or a bare helius api key, because a key pasted alone is
+// exactly what happened the first night and the door looped on a value that
+// could not be dialled. Anything that does not start with http is treated as
+// a helius key and given its proper address.
+const RPC = () => {
+  const v = (process.env.SOLANA_RPC_URL || '').trim();
+  if (!v) return 'https://api.mainnet-beta.solana.com';
+  if (/^https?:\/\//i.test(v)) return v;
+  return `https://mainnet.helius-rpc.com/?api-key=${v}`;
+};
 
 export const rpc = async (method, params) => {
   const res = await fetch(RPC(), {

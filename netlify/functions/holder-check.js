@@ -50,7 +50,13 @@ export const handler = async (event) => {
       await rpc('getLatestBlockhash', [{ commitment: 'processed' }]);
       chain = 'up';
     } catch (err) {
-      detail = err.message;
+      // Classified, never echoed. The first cut printed the raw message on a
+      // public endpoint and the raw message contained the env value itself.
+      const m = String(err.message || '');
+      detail = /parse URL/i.test(m) ? 'rpc value is not a url'
+        : /401|403/.test(m) ? 'rpc refused the key'
+        : /429/.test(m) ? 'rpc throttled'
+        : 'rpc unreachable';
     }
     return json(200, { ok: true, database: db2 ? 'up' : 'down', chain, detail, rpcConfigured: Boolean(process.env.SOLANA_RPC_URL) });
   }
@@ -74,7 +80,7 @@ export const handler = async (event) => {
     balance = await balanceOf(wallet);
   } catch (err) {
     console.error('[holder-check] rpc', err.message);
-    return json(200, { ok: false, reason: 'quiet', error: `the chain did not answer (${err.message})` });
+    return json(200, { ok: false, reason: 'quiet', error: 'the chain did not answer. try again in a minute.' });
   }
 
   const min = await threshold(db);
