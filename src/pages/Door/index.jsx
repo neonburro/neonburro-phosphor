@@ -31,7 +31,7 @@ const PHANTOM_LINK = `https://phantom.app/ul/browse/${encodeURIComponent(HERE)}?
 const SOLFLARE_LINK = `https://solflare.com/ul/v1/browse/${encodeURIComponent(HERE)}?ref=${encodeURIComponent(HERE)}`;
 import { supabase, remembered, setRemembered } from '../../lib/supabase';
 import { useEffect } from 'react';
-import { check, tokens } from '../../lib/holder';
+import { check, tokens, knownHandle } from '../../lib/holder';
 import { WALLET_LINK } from '../../data/links';
 import { t } from '../../data/copy';
 
@@ -151,7 +151,7 @@ const Door = () => {
 
         <VStack align="start" spacing={4} pt={2}>
           <Button size="lg" onClick={go} isLoading={phase === 'signing' || phase === 'checking'} loadingText={phase === 'signing' ? '...' : t('door_signed')}>
-            {t('door_button')}
+            {knownHandle() ? t('door_button_back', { handle: knownHandle() }) : t('door_button')}
           </Button>
           <Checkbox isChecked={remember} onChange={(e) => setRemember(e.target.checked)}
             sx={{ '.chakra-checkbox__control': { borderColor: colors.surface.lineStrong, _checked: { bg: colors.accent.signal, borderColor: colors.accent.signal, color: colors.text.inverse } } }}>

@@ -29,6 +29,12 @@ export const check = async (patch) => {
       body: JSON.stringify(patch || {}),
     });
     const json = await res.json();
+    // The name sticks to the doorframe. A returning wallet is greeted by the
+    // handle it already owns, one wallet is one name forever, so the door
+    // says who you are before you even sign.
+    try {
+      if (json?.holder?.handle) localStorage.setItem('stacks-handle', json.holder.handle);
+    } catch { /* private mode */ }
     if (!res.ok || !json.ok) {
       if (json?.reason === 'no session') return { state: 'out' };
       return { state: 'quiet', error: json?.error || null };
@@ -50,6 +56,10 @@ export const useHolder = () => {
 };
 
 // Whole tokens, compact, for the sentence on the door.
+export const knownHandle = () => {
+  try { return localStorage.getItem('stacks-handle') || null; } catch { return null; }
+};
+
 export const tokens = (n) => {
   if (n == null || !Number.isFinite(n)) return null;
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)} million`;
