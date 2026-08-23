@@ -29,6 +29,12 @@ const EPOCH_FACE = 'https://neonburro.com/token/epoch-avatar.webp';
 const HERE = typeof window !== 'undefined' ? window.location.href : 'https://burros.neonburro.com/';
 const PHANTOM_LINK = `https://phantom.app/ul/browse/${encodeURIComponent(HERE)}?ref=${encodeURIComponent(HERE)}`;
 const SOLFLARE_LINK = `https://solflare.com/ul/v1/browse/${encodeURIComponent(HERE)}?ref=${encodeURIComponent(HERE)}`;
+// Documented deep links only. Trust publishes link.trustwallet.com open_url
+// with coin 501 for solana and coinbase publishes go.cb-w.com dapp. Okx and
+// backpack publish nothing reliable, their in app browsers arrive through the
+// wallet standard on their own.
+const TRUST_LINK = `https://link.trustwallet.com/open_url?coin_id=501&url=${encodeURIComponent(HERE)}`;
+const COINBASE_LINK = `https://go.cb-w.com/dapp?cb_url=${encodeURIComponent(HERE)}`;
 import { supabase, remembered, setRemembered } from '../../lib/supabase';
 import { useEffect } from 'react';
 import { check, tokens, knownHandle } from '../../lib/holder';
@@ -232,6 +238,16 @@ const Door = () => {
                 border="1px solid" borderColor={colors.accent.signalAlpha[32]} borderRadius="full" px={3} py={1}
                 _hover={{ bg: colors.accent.signalAlpha[8] }}>
                 {t('door_open_solflare')}
+              </Box>
+              <Box as="a" href={TRUST_LINK} fontFamily="mono" fontSize="12px" color={colors.accent.signal}
+                border="1px solid" borderColor={colors.accent.signalAlpha[32]} borderRadius="full" px={3} py={1}
+                _hover={{ bg: colors.accent.signalAlpha[8] }}>
+                {t('door_open_trust')}
+              </Box>
+              <Box as="a" href={COINBASE_LINK} fontFamily="mono" fontSize="12px" color={colors.accent.signal}
+                border="1px solid" borderColor={colors.accent.signalAlpha[32]} borderRadius="full" px={3} py={1}
+                _hover={{ bg: colors.accent.signalAlpha[8] }}>
+                {t('door_open_coinbase')}
               </Box>
               {/* Jupiter mobile has a real dapp browser and no public deep
                   link scheme worth guessing at, so this pill hands the reader

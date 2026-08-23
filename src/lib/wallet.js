@@ -87,6 +87,12 @@ export const detect = () => {
   if (window.solflare) return { kind: 'solflare', wallet: window.solflare };
   if (window.jupiter?.solana) return { kind: 'jupiter', wallet: window.jupiter.solana };
   if (window.backpack) return { kind: 'backpack', wallet: window.backpack };
+  if (window.coinbaseSolana) return { kind: 'coinbase', wallet: window.coinbaseSolana };
+  if (window.okxwallet?.solana) return { kind: 'okx', wallet: window.okxwallet.solana };
+  if (window.bitkeep?.solana) return { kind: 'bitget', wallet: window.bitkeep.solana };
+  if (window.trustwallet?.solana) return { kind: 'trust', wallet: window.trustwallet.solana };
+  if (window.exodus?.solana) return { kind: 'exodus', wallet: window.exodus.solana };
+  if (window.magicEden?.solana) return { kind: 'magiceden', wallet: window.magicEden.solana };
   const standard = standardWallets.filter(isSolanaStandard);
   const pick = standard.find((w) => /jupiter/i.test(w.name || '')) || standard[0];
   if (pick) {
@@ -106,6 +112,12 @@ export const seen = () => {
   if (window.solflare) names.push('solflare');
   if (window.jupiter?.solana) names.push('jupiter');
   if (window.backpack) names.push('backpack');
+  if (window.coinbaseSolana) names.push('coinbase');
+  if (window.okxwallet?.solana) names.push('okx');
+  if (window.bitkeep?.solana) names.push('bitget');
+  if (window.trustwallet?.solana) names.push('trust');
+  if (window.exodus?.solana) names.push('exodus');
+  if (window.magicEden?.solana) names.push('magiceden');
   for (const w of standardWallets.filter(isSolanaStandard)) names.push(`${(w.name || 'standard').toLowerCase()}·std`);
   return [...new Set(names)];
 };
