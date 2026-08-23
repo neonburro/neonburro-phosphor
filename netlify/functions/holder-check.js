@@ -37,6 +37,23 @@ const addressOf = (user) => {
 
 export const handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: corsHeaders, body: '' };
+  // GET is the stethoscope. No session, no wallet, no balance, it only says
+  // whether the database and the chain answer through the same doors the real
+  // check uses, so a failing verify can be diagnosed from outside without log
+  // access. It costs one cheap rpc call and reveals nothing.
+  if (event.httpMethod === 'GET') {
+    const db2 = adminClient();
+    let chain = 'quiet';
+    let detail = null;
+    try {
+      const { rpc } = await import('./_shared.js');
+      await rpc('getLatestBlockhash', [{ commitment: 'processed' }]);
+      chain = 'up';
+    } catch (err) {
+      detail = err.message;
+    }
+    return json(200, { ok: true, database: db2 ? 'up' : 'down', chain, detail, rpcConfigured: Boolean(process.env.SOLANA_RPC_URL) });
+  }
   if (event.httpMethod !== 'POST') return json(405, { ok: false, error: 'method' });
 
   const db = adminClient();
@@ -57,7 +74,7 @@ export const handler = async (event) => {
     balance = await balanceOf(wallet);
   } catch (err) {
     console.error('[holder-check] rpc', err.message);
-    return json(200, { ok: false, reason: 'quiet' });
+    return json(200, { ok: false, reason: 'quiet', error: `the chain did not answer (${err.message})` });
   }
 
   const min = await threshold(db);
