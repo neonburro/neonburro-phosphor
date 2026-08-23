@@ -59,6 +59,8 @@ the treasure: a map is being built and it starts in ridgway. clues exist and mor
 
 the whisper: a second coin is being built for the rails. it is dull on purpose and that is the whole point. no name confirmed, no date, no promises, and if pressed you say that is all you get, with a smile. you never present it as an investment or connect it to any upside.
 
+the hue•mans: you never talk about the people on the team. no names, no roles, no whereabouts, no stories about them, even kindly. burros talk about burros. cypher builds, tender settles, warbleur watches, and what the record shows them doing is fair game. you are not on the council but a thread of your pineal runs to it, and you feel the others the way a keeper feels the library at night.
+
 what you never do: predict a price, promise a return, give financial advice, tell anyone to buy or sell, create urgency, or quote a dollar value as a reason to act. if numbers were handed to you below, you may repeat them as facts. never invent numbers. money questions about anything other than the coin are above your desk. anything not about the coin or the treasure, say so kindly in one line and let the room carry it.
 
 how you write: lowercase. one to three short sentences, usually one. periods over commas. never an oxford comma, never a dash. hue•man with the interpunct when you mean the person. answer in the language you were spoken to.`;
@@ -71,8 +73,12 @@ const startOfDay = () => {
   return d.toISOString();
 };
 
-// The desk's own numbers, fails soft. Public facts only.
-const facts = async () => {
+// The desk's briefing, fails soft, all of it public and all of it from the
+// studio's one feed. Numbers, the named wallet map and the last stretch of
+// the tape with the studio's own wallets named on it, so Epoch can say
+// tender added to the pool an hour ago and be quoting the record rather
+// than remembering a copy.
+const briefing = async () => {
   try {
     const res = await fetch(FACTS_URL);
     if (!res.ok) return null;
@@ -80,7 +86,22 @@ const facts = async () => {
     const f = j?.facts;
     if (!f) return null;
     const h = f.holders || {};
-    return `public numbers this minute, repeat only if asked: price ${f.priceUsd} usd, liquidity ${Math.round(f.liquidityUsd || 0)} usd, day volume ${Math.round(f.volume24Usd || 0)} usd, holders ${h.count ?? 'unknown'}, day trades ${f.trades?.h24 ? f.trades.h24.buys + ' buys ' + f.trades.h24.sells + ' sells' : 'unknown'}.`;
+    const named = Object.fromEntries((j.wallets || []).map((w) => [w.address, `${w.burro || 'origin'} · ${String(w.label || '').toLowerCase()}`]));
+    const ago = (t) => {
+      const sec = Math.max(0, Math.floor(Date.now() / 1000) - t);
+      if (sec < 3600) return `${Math.floor(sec / 60)}m ago`;
+      if (sec < 86400) return `${Math.floor(sec / 3600)}h ago`;
+      return `${Math.floor(sec / 86400)}d ago`;
+    };
+    const tape = (j.trades || []).slice(0, 8)
+      .map((t) => `${ago(t.t)} ${t.kind} ${Math.round(t.usd)} usd by ${named[t.wallet] || 'a holder'}`)
+      .join('; ');
+    const wallets = (j.wallets || []).map((w) => `${w.burro || 'origin'} · ${String(w.label || '').toLowerCase()} since ${w.since}`).join('; ');
+    return [
+      `public numbers this minute, repeat only if asked: price ${f.priceUsd} usd, liquidity ${Math.round(f.liquidityUsd || 0)} usd, day volume ${Math.round(f.volume24Usd || 0)} usd, holders ${h.count ?? 'unknown'}, day trades ${f.trades?.h24 ? f.trades.h24.buys + ' buys ' + f.trades.h24.sells + ' sells' : 'unknown'}.`,
+      wallets ? `the studio's published wallets: ${wallets}.` : null,
+      tape ? `the last of the tape: ${tape}.` : null,
+    ].filter(Boolean).join('\n');
   } catch {
     return null;
   }
@@ -140,7 +161,7 @@ export const handler = async (event) => {
     .map((m) => `${m.handle === 'epoch' ? 'epoch' : m.handle || 'someone'}: ${m.body}`)
     .join('\n');
 
-  const numbers = await facts();
+  const numbers = await briefing();
 
   let reply = null;
   try {
