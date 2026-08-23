@@ -10,7 +10,10 @@
 //
 // No oxford commas, no em dashes.
 
-export const WALLET_LINK = '';
+// Tyler's Jupiter Mobile invite. The app store path for whoever has no
+// wallet at all, referral code XZDSTD3Q rides inside the link. Never call it
+// a referral anywhere a visitor reads.
+export const WALLET_LINK = 'https://jupiter.go.link/cYWo5';
 
 export const STUDIO = 'https://neonburro.com';
 export const TOKEN_PAGE = 'https://neonburro.com/token/neonburro/';
