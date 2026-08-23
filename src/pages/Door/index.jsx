@@ -41,6 +41,7 @@ const Door = () => {
   const [phase, setPhase] = useState('resting');
   const [remember, setRemember] = useState(remembered());
   const [line, setLine] = useState(null);
+  const [copied, setCopied] = useState(false);
   const [addr, setAddr] = useState(null);
 
   const go = async () => {
@@ -140,6 +141,17 @@ const Door = () => {
                 border="1px solid" borderColor={colors.accent.signalAlpha[32]} borderRadius="full" px={3} py={1}
                 _hover={{ bg: colors.accent.signalAlpha[8] }}>
                 {t('door_open_solflare')}
+              </Box>
+              {/* Jupiter mobile has a real dapp browser and no public deep
+                  link scheme worth guessing at, so this pill hands the reader
+                  the address and tells them where to paste it. Tyler's own
+                  coins live in jupiter mobile, this pill is for him first. */}
+              <Box as="button" type="button"
+                onClick={() => { try { navigator.clipboard.writeText('https://burros.neonburro.com'); setCopied(true); } catch { /* clipboard denied */ } }}
+                fontFamily="mono" fontSize="12px" color={copied ? colors.text.primary : colors.accent.signal}
+                border="1px solid" borderColor={colors.accent.signalAlpha[32]} borderRadius="full" px={3} py={1}
+                _hover={{ bg: colors.accent.signalAlpha[8] }}>
+                {copied ? t('door_jupiter_done') : t('door_jupiter')}
               </Box>
             </>
           )}
