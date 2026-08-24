@@ -24,6 +24,7 @@ import { Box, Button, Checkbox, HStack, Text, VStack } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
 import colors from '../../theme/colors';
 import { RAIL, MEASURE, EASE } from '../../theme/layout';
+import TokenChip from '../../components/TokenChip';
 import { signIn, detect, addressOf, short, seen } from '../../lib/wallet';
 const EPOCH_FACE = 'https://neonburro.com/token/epoch-avatar.webp';
 const HERE = typeof window !== 'undefined' ? window.location.href : 'https://phosphor.neonburro.com/';
@@ -305,6 +306,7 @@ const Door = () => {
           </Text>
         )}
       </VStack>
+      <TokenChip />
     </VStack>
   );
 };

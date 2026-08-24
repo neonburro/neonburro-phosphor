@@ -33,9 +33,11 @@
 # that wallet opens is the door. Nobody is thrown out mid sentence, nobody stays
 # who should not. The per request check in holder-check.js is the fast path,
 # this is the slow one that catches a wallet that stopped visiting.
-[[scheduled_functions]]
-  function = "holder-sweep"
-  cron = "17 * * * *"
+# Netlify only honors the per function table with a schedule key. This block
+# was a made up [[scheduled_functions]] table until 2026-08-23 and the sweep
+# never fired once, netlify.toml does not complain about tables it ignores.
+[functions."holder-sweep"]
+  schedule = "17 * * * *"
 
 [[headers]]
   for = "/*"
