@@ -62,7 +62,7 @@ const MuskChip = () => {
             border="1px solid" borderColor={colors.accent.signal} pointerEvents="none"
             sx={{ '@keyframes muskPing': { from: { transform: 'scale(1)', opacity: 0.7 }, to: { transform: 'scale(2.1)', opacity: 0 } }, animation: `muskPing 900ms ${EASE} ${i * 140}ms forwards` }} />
         ))}
-        <Box as="img" src="/kneeon-musk.webp" alt="" w="100%" h="100%" objectFit="cover" borderRadius="13px" display="block" />
+        <Box as="img" src="/kneeon-musk-face.webp" alt="" w="100%" h="100%" objectFit="cover" borderRadius="13px" display="block" />
       </Box>
     </Box>
   );
