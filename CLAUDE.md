@@ -1,6 +1,6 @@
 # neonburro burros
 
-The stacks at burros.neonburro.com. A room under the range for people who hold
+The stacks at phosphor.neonburro.com. A room under the range for people who hold
 NEONBURRO. Tyler retired the word burrow on 2026-08-23, the place is the stacks,
 named for the shelves Epoch still misses. Tables and functions keep their
 burrow_ prefixes, renaming a schema for a word is how records get lost. This file is the source of truth for working in this repo.

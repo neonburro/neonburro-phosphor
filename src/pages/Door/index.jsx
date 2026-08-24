@@ -26,7 +26,7 @@ import colors from '../../theme/colors';
 import { RAIL, MEASURE, EASE } from '../../theme/layout';
 import { signIn, detect, addressOf, short, seen } from '../../lib/wallet';
 const EPOCH_FACE = 'https://neonburro.com/token/epoch-avatar.webp';
-const HERE = typeof window !== 'undefined' ? window.location.href : 'https://burros.neonburro.com/';
+const HERE = typeof window !== 'undefined' ? window.location.href : 'https://phosphor.neonburro.com/';
 const PHANTOM_LINK = `https://phantom.app/ul/browse/${encodeURIComponent(HERE)}?ref=${encodeURIComponent(HERE)}`;
 const SOLFLARE_LINK = `https://solflare.com/ul/v1/browse/${encodeURIComponent(HERE)}?ref=${encodeURIComponent(HERE)}`;
 // Documented deep links only. Trust publishes link.trustwallet.com open_url
@@ -65,7 +65,7 @@ const Door = () => {
       });
       const j = await res.json();
       if (!j.ok || !j.nonce) return;
-      const url = `https://burros.neonburro.com/approve/?n=${j.nonce}`;
+      const url = `https://phosphor.neonburro.com/approve/?n=${j.nonce}`;
       const dataUrl = await QRCode.toDataURL(url, { margin: 1, width: 220, color: { dark: '#F4F3F1', light: '#0B0B0C00' } });
       setQr({ img: dataUrl, nonce: j.nonce });
       qrPoll.current && clearInterval(qrPoll.current);
@@ -259,7 +259,7 @@ const Door = () => {
                   the address and tells them where to paste it. Tyler's own
                   coins live in jupiter mobile, this pill is for him first. */}
               <Box as="button" type="button"
-                onClick={() => { try { navigator.clipboard.writeText('https://burros.neonburro.com'); setCopied(true); } catch { /* clipboard denied */ } }}
+                onClick={() => { try { navigator.clipboard.writeText('https://phosphor.neonburro.com'); setCopied(true); } catch { /* clipboard denied */ } }}
                 fontFamily="mono" fontSize="12px" color={copied ? colors.text.primary : colors.accent.signal}
                 border="1px solid" borderColor={colors.accent.signalAlpha[32]} borderRadius="full" px={3} py={1}
                 _hover={{ bg: colors.accent.signalAlpha[8] }}>

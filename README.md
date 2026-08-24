@@ -1,4 +1,4 @@
-# burros.neonburro.com
+# phosphor.neonburro.com
 
 The burrow. A room for people who hold NEONBURRO, opened by a wallet
 signature, gated by a balance the database knows. Built by neonburro in

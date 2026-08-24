@@ -1,5 +1,5 @@
 # netlify.toml
-# The burrow. Build, functions, one SPA catch all, one hourly sweep.
+# phosphor. Build, functions, one SPA catch all, one hourly sweep.
 
 [build]
   command = "yarn build"
@@ -13,6 +13,15 @@
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
+
+# The old name forwards forever. Every link printed before 2026-08-23 said
+# burros.neonburro.com and every one of them keeps landing. Host scoped, so it
+# must sit above the SPA catch all or the catch all eats it.
+[[redirects]]
+  from = "https://burros.neonburro.com/*"
+  to = "https://phosphor.neonburro.com/:splat"
+  status = 301
+  force = true
 
 [[redirects]]
   from = "/*"
