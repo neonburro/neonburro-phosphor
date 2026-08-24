@@ -7,7 +7,7 @@
 //
 // No oxford commas, no em dashes.
 
-import { Box, HStack, Text } from '@chakra-ui/react';
+import { Box, HStack, Text, VStack } from '@chakra-ui/react';
 import { Link, useLocation } from 'react-router-dom';
 import { FiPocket, FiMessageSquare } from 'react-icons/fi';
 import { useState } from 'react';
@@ -41,7 +41,8 @@ const MuskChip = () => {
             {[
               ['the studio', 'https://neonburro.com'],
               ['NEONBURRO on solana', 'https://neonburro.com/token/neonburro/'],
-              ['the telegram', 'https://t.me/burroship'],
+              ['the coin on pump.fun', 'https://pump.fun/coin/EdBEwPyso39z2ow59frpuLUVz5axm61dnqAeAuxYpump'],
+              ['neonburro on x', 'https://x.com/neonburro'],
             ].map(([label, href]) => (
               <Box key={href} as="a" href={href} target="_blank" rel="noopener noreferrer"
                 fontFamily="mono" fontSize="12px" color={colors.text.primary}
