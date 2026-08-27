@@ -40,6 +40,88 @@ import { supabase, remembered, setRemembered } from '../../lib/supabase';
 import { useEffect } from 'react';
 import { check, tokens, knownHandle } from '../../lib/holder';
 import QRCode from 'qrcode';
+
+// ── THE SIGNALS, 2026-08-27 ─────────────────────────────────────────────────
+// The door states the room's vitals before anyone signs, price and day move
+// from the studio's token-price function (one source of price truth for
+// every property, pull from one), holders from the hourly token_snapshots,
+// and the open spot count from the send a burro wall, which is the same
+// project this room lives in. Every stat renders only when its number
+// arrived, a dash is a lie and a spinner is a promise, the row simply grows
+// as the answers land. Tack, not dashboarding. Mobile first, it wraps.
+const useDoorSignals = () => {
+  const [sig, setSig] = useState({});
+  useEffect(() => {
+    let dead = false;
+    fetch('https://neonburro.com/.netlify/functions/token-price')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        const tk = j?.tokens?.neonburro;
+        if (dead || !tk) return;
+        setSig((s) => ({ ...s, price: tk.usdPrice, change: tk.change24h, pool: tk.reserves?.poolUsd }));
+      })
+      .catch(() => {});
+    if (supabase) {
+      supabase.from('token_snapshots').select('holders').order('taken_at', { ascending: false }).limit(1)
+        .then(({ data }) => { if (!dead && data?.[0]) setSig((s) => ({ ...s, holders: data[0].holders })); });
+      supabase.from('send_a_burro_public').select('spot').eq('status', 'ramp')
+        .then(({ data }) => { if (!dead && Array.isArray(data)) setSig((s) => ({ ...s, spots: Math.max(0, 100 - data.length) })); });
+    }
+    return () => { dead = true; };
+  }, []);
+  return sig;
+};
+
+const sigMoney = (p) => (Number.isFinite(p) ? (p >= 0.01 ? `$${p.toFixed(4)}` : `$${p.toPrecision(3)}`) : null);
+
+const DoorSignals = () => {
+  const sig = useDoorSignals();
+  const bits = [];
+  if (sigMoney(sig.price)) {
+    bits.push(
+      <Text as="span" key="price" color={colors.text.primary}>
+        {sigMoney(sig.price)}{' '}
+        {Number.isFinite(sig.change) && (
+          <Text as="span" color={sig.change >= 0 ? colors.accent.signal : colors.text.muted}>
+            {sig.change >= 0 ? '+' : ''}{sig.change.toFixed(1)}%
+          </Text>
+        )}
+      </Text>
+    );
+  }
+  if (Number.isFinite(sig.holders)) {
+    bits.push(<Text as="span" key="holders"><Text as="span" color={colors.text.primary}>{sig.holders}</Text> holders</Text>);
+  }
+  if (Number.isFinite(sig.spots)) {
+    bits.push(
+      <Text as="span" key="spots">
+        <Box as="a" href="https://neonburro.com/send-a-burro/" target="_blank" rel="noopener noreferrer"
+          color={colors.text.muted} borderBottom="1px solid" borderColor="transparent"
+          transition={`color 200ms ${EASE}, border-color 200ms`}
+          _hover={{ color: colors.accent.signal, borderColor: colors.accent.signal }}>
+          <Text as="span" color={colors.text.primary}>{sig.spots}</Text> spots stand open on the wall
+        </Box>
+      </Text>
+    );
+  }
+  if (!bits.length) return null;
+  return (
+    <HStack spacing={0} flexWrap="wrap" rowGap={1.5} fontFamily="mono" fontSize="12px"
+      color={colors.text.muted} letterSpacing="0.02em"
+      sx={{
+        animation: 'nbSigIn 0.7s cubic-bezier(0.16, 1, 0.3, 1) both',
+        '@keyframes nbSigIn': { from: { opacity: 0, transform: 'translateY(8px)' }, to: { opacity: 1, transform: 'translateY(0)' } },
+        '@media (prefers-reduced-motion: reduce)': { animation: 'none' },
+      }}>
+      {bits.map((b, i) => (
+        <HStack as="span" key={i} spacing={0} display="inline-flex" align="baseline">
+          {i > 0 && <Text as="span" mx={2.5} color={colors.surface.lineStrong}>·</Text>}
+          {b}
+        </HStack>
+      ))}
+    </HStack>
+  );
+};
 import { WALLET_LINK } from '../../data/links';
 import { t } from '../../data/copy';
 
@@ -178,19 +260,32 @@ const Door = () => {
       <VStack align="start" spacing={6} maxW={MEASURE} w="100%" position="relative" zIndex={1}>
         <Text {...kicker} color={colors.accent.signal}>{t('door_kicker')}</Text>
         <HStack spacing={{ base: 4, md: 5 }} align="center">
-          <Box
-            as="img"
-            src={EPOCH_FACE}
-            alt="epoch, keeper of the record"
-            w={{ base: '56px', md: '88px' }}
-            h={{ base: '56px', md: '88px' }}
-            borderRadius="20px"
-            objectFit="cover"
-            bg={colors.surface.raised}
-            border="1px solid"
-            borderColor={colors.surface.line}
-            flexShrink={0}
-          />
+          {/* Rest a cursor on the steward and he says his line, the same one
+              the coin page and the pump.fun bio carry. Voice two, one aside,
+              hover only, a phone tap has a door to open. */}
+          <Box position="relative" role="group" flexShrink={0}>
+            <Box
+              as="img"
+              src={EPOCH_FACE}
+              alt="epoch, keeper of the record"
+              w={{ base: '56px', md: '88px' }}
+              h={{ base: '56px', md: '88px' }}
+              borderRadius="20px"
+              objectFit="cover"
+              bg={colors.surface.raised}
+              border="1px solid"
+              borderColor={colors.surface.line}
+              transition={`border-color 300ms ${EASE}`}
+              _groupHover={{ borderColor: `${colors.accent.signal}66` }}
+            />
+            <Text position="absolute" top="calc(100% + 8px)" left={0} whiteSpace="nowrap"
+              fontFamily="mono" fontSize="11px" letterSpacing="0.04em" color={colors.accent.signal}
+              opacity={0} transform="translateY(4px)" pointerEvents="none" aria-hidden="true"
+              transition={`opacity 400ms ${EASE} 100ms, transform 400ms ${EASE} 100ms`}
+              sx={{ '@media (hover: hover)': { '[role="group"]:hover &': { opacity: 0.95, transform: 'translateY(0)' } } }}>
+              "value moves. history remains."
+            </Text>
+          </Box>
           <Text fontFamily="heading" fontWeight="600" letterSpacing="-0.02em" fontSize={{ base: '32px', md: '48px' }} lineHeight="1.05" color={colors.text.primary}>
             {t('door_title')}
           </Text>
@@ -198,6 +293,9 @@ const Door = () => {
         <Text fontFamily="body" fontSize={{ base: '15px', md: '16px' }} lineHeight="1.7" color={colors.text.secondary}>
           {t('door_line')}
         </Text>
+
+        {/* The vitals, stated before anyone signs. See useDoorSignals above. */}
+        <DoorSignals />
 
         {(phase === 'under' || phase === 'quiet' || phase === 'nowallet') && (
           <Text fontFamily="mono" fontSize="13px" lineHeight="1.7" color={colors.text.primary} borderLeft="2px solid" borderColor={colors.accent.signal} pl={4}>
