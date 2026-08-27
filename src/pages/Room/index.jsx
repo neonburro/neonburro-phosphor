@@ -217,9 +217,14 @@ const Room = () => {
             ))}
           </VStack>
           <HStack px={5} py={3} borderTop="1px solid" borderColor={colors.surface.line} justify="space-between">
-            <Box as="button" type="button" onClick={() => nav('/wallet/')} fontFamily={MONO} fontSize="11px" color={colors.accent.signal}>
-              {t('nav_wallet')} →
-            </Box>
+            <HStack spacing={4}>
+              <Box as="button" type="button" onClick={() => nav('/wallet/')} fontFamily={MONO} fontSize="11px" color={colors.accent.signal}>
+                {t('nav_wallet')} →
+              </Box>
+              <Box as="button" type="button" onClick={() => nav('/ledger/')} fontFamily={MONO} fontSize="11px" color={colors.text.muted} _hover={{ color: colors.text.primary }}>
+                {t('room_ledger')} →
+              </Box>
+            </HStack>
             <Box as="button" type="button" onClick={leave} fontFamily={MONO} fontSize="11px" color={colors.text.muted} _hover={{ color: colors.text.primary }}>
               {t('room_leave')}
             </Box>
