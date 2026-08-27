@@ -24,7 +24,9 @@
 // Speech API, on device, free, in the visitor's own language from their
 // profile. Where the API is missing (some in app wallet browsers) the dot
 // simply is not there and typing still works. Tyler is against typing, the
-// dot is the point, the keyboard is the fallback.
+// dot is the point, the keyboard is the fallback. The studio's hallway at
+// neonburro/src/pages/Token/index.jsx carries the same hold to talk mechanic,
+// duplicated on purpose, change it thoughtfully in both.
 //
 // ── EPOCH ───────────────────────────────────────────────────────────────────
 // In the coin room, one pinned line under the header says whose desk it is,
