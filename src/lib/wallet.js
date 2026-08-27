@@ -76,6 +76,17 @@ export const STATEMENT = 'the stacks want to know this wallet is yours. nothing 
 
 export const detect = () => {
   if (typeof window === 'undefined') return null;
+  // jupiter answers first, the house preference, 2026-08-26. It can arrive
+  // as a global or through the wallet standard and both are checked before
+  // anybody else, because a browser holding an EMPTY solflare and a funded
+  // jupiter used to get the empty one and a dead end. A locked jupiter is
+  // fine, the connect ask wakes its unlock sheet.
+  if (window.jupiter?.solana) return { kind: 'jupiter', wallet: window.jupiter.solana };
+  const early = standardWallets.filter(isSolanaStandard).find((w) => /jupiter/i.test(w.name || ''));
+  if (early) {
+    const adapted = adaptStandard(early);
+    if (adapted) return { kind: 'standard:jupiter', wallet: adapted };
+  }
   // The shapes supabase documents: default detection reads window.solana, and
   // for the rest you hand over the CONTAINER the vendor ships, window.phantom
   // for phantom, window.braveSolana for brave. Solflare injects window.solflare
@@ -85,7 +96,6 @@ export const detect = () => {
   if (window.phantom?.solana) return { kind: 'phantom', wallet: window.phantom };
   if (window.braveSolana) return { kind: 'brave', wallet: window.braveSolana };
   if (window.solflare) return { kind: 'solflare', wallet: window.solflare };
-  if (window.jupiter?.solana) return { kind: 'jupiter', wallet: window.jupiter.solana };
   if (window.backpack) return { kind: 'backpack', wallet: window.backpack };
   if (window.coinbaseSolana) return { kind: 'coinbase', wallet: window.coinbaseSolana };
   if (window.okxwallet?.solana) return { kind: 'okx', wallet: window.okxwallet.solana };
