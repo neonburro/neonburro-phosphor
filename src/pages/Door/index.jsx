@@ -25,7 +25,7 @@ import { useNavigate } from 'react-router-dom';
 import colors from '../../theme/colors';
 import { RAIL, MEASURE, EASE } from '../../theme/layout';
 import TokenChip from '../../components/TokenChip';
-import { signIn, detect, addressOf, short, seen } from '../../lib/wallet';
+import { signIn, detect, detectAll, addressOf, short, seen } from '../../lib/wallet';
 const EPOCH_FACE = 'https://neonburro.com/token/epoch-avatar.webp';
 const HERE = typeof window !== 'undefined' ? window.location.href : 'https://phosphor.neonburro.com/';
 const PHANTOM_LINK = `https://phantom.app/ul/browse/${encodeURIComponent(HERE)}?ref=${encodeURIComponent(HERE)}`;
@@ -127,17 +127,19 @@ const Door = () => {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [addr, setAddr] = useState(null);
 
-  const go = async () => {
+  // choice is a picker entry from detectAll, absent for the auto pick and
+  // for a returning session, which never touches the wallet at all.
+  const go = async (choice) => {
     setRemembered(remember);
     // A living session skips the wallet entirely, the signature already
     // happened. Only a signed out visitor is sent to the wallet sheet.
     const { data: existing } = supabase ? await supabase.auth.getSession() : { data: null };
     if (!existing?.session) {
-      if (!detect()) { setLine(t('door_not_found')); setPhase('nowallet'); startHandoff(); return; }
+      if (!choice && !detect()) { setLine(t('door_not_found')); setPhase('nowallet'); startHandoff(); return; }
     }
     setPhase('signing');
     try {
-      const session = existing?.session || await signIn();
+      const session = existing?.session || await signIn(choice);
       setAddr(addressOf(session?.user));
       setPhase('checking');
       const r = await check();
@@ -211,9 +213,29 @@ const Door = () => {
         )}
 
         <VStack align="start" spacing={4} pt={2}>
-          <Button size="lg" onClick={go} isLoading={phase === 'signing' || phase === 'checking'} loadingText={phase === 'signing' ? '...' : t('door_signed')}>
-            {knownHandle() ? t('door_button_back', { handle: knownHandle() }) : t('door_button')}
-          </Button>
+          {/* The picker, synced with the studio's send a burro gate
+              2026-08-27, Tyler's law that every wallet door in the family
+              behaves the same. A browser holding several wallets chooses,
+              a returning holder keeps the one welcome back button, the
+              session skips the sheet either way. */}
+          {!knownHandle() && detectAll().length > 1 ? (
+            <VStack align="start" spacing={3}>
+              <Text {...kicker} color={colors.text.muted}>connect with</Text>
+              <HStack spacing={3} flexWrap="wrap" rowGap={3}>
+                {detectAll().map((c) => (
+                  <Button key={c.name} size="lg" onClick={() => go(c)}
+                    isLoading={phase === 'signing' || phase === 'checking'}
+                    loadingText={phase === 'signing' ? '...' : t('door_signed')}>
+                    {c.name}
+                  </Button>
+                ))}
+              </HStack>
+            </VStack>
+          ) : (
+            <Button size="lg" onClick={() => go()} isLoading={phase === 'signing' || phase === 'checking'} loadingText={phase === 'signing' ? '...' : t('door_signed')}>
+              {knownHandle() ? t('door_button_back', { handle: knownHandle() }) : t('door_button')}
+            </Button>
+          )}
           <Box as="button" type="button" onClick={() => { setPhase((ph) => ph); startHandoff(); }}
             fontFamily="mono" fontSize="12px" color={colors.text.muted} textAlign="left"
             _hover={{ color: colors.accent.signal }}>

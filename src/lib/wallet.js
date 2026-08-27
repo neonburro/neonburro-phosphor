@@ -132,18 +132,52 @@ export const seen = () => {
   return [...new Set(names)];
 };
 
+// Every wallet the browser holds, one entry per name, jupiter first. The
+// door's picker reads this so a browser holding several wallets gets a
+// choice instead of the house favourite. Ported from the studio's
+// send-a-burro gate 2026-08-27, Tyler's law that every wallet door in the
+// family behaves the same. If this changes, change the studio's
+// src/lib/sendABurro.js the same sitting, both files say so.
+export const detectAll = () => {
+  if (typeof window === 'undefined') return [];
+  const list = [];
+  const add = (name, wallet) => {
+    if (!list.some((f) => f.name === name)) list.push({ name, wallet });
+  };
+  if (window.jupiter?.solana) add('jupiter', window.jupiter.solana);
+  if (window.phantom?.solana) add('phantom', window.phantom);
+  if (window.solflare) add('solflare', window.solflare);
+  if (window.backpack) add('backpack', window.backpack);
+  if (window.braveSolana) add('brave', window.braveSolana);
+  if (window.coinbaseSolana) add('coinbase', window.coinbaseSolana);
+  if (window.okxwallet?.solana) add('okx', window.okxwallet.solana);
+  if (window.bitkeep?.solana) add('bitget', window.bitkeep.solana);
+  if (window.trustwallet?.solana) add('trust', window.trustwallet.solana);
+  if (window.exodus?.solana) add('exodus', window.exodus.solana);
+  if (window.magicEden?.solana) add('magiceden', window.magicEden.solana);
+  for (const w of standardWallets.filter(isSolanaStandard)) {
+    const adapted = adaptStandard(w);
+    if (adapted) add((w.name || 'wallet').toLowerCase(), adapted);
+  }
+  if (!list.length && window.solana) add('solana', null);
+  list.sort((a, b) => (a.name === 'jupiter' ? -1 : b.name === 'jupiter' ? 1 : 0));
+  return list;
+};
+
 // Sign in. Resolves to the Supabase session or throws with a sentence a
 // person can read. Every failure is also logged with its real shape, the
 // first cut swallowed errors into a generic quiet line and cost a night.
-export const signIn = async () => {
+// Takes an optional choice from detectAll, no choice keeps the old
+// jupiter first auto pick.
+export const signIn = async (choice) => {
   if (!supabase) throw new Error('the room is not connected to its database yet');
-  const found = detect();
+  const found = choice || detect();
   if (!found) throw new Error('no wallet');
   const args = { chain: 'solana', statement: STATEMENT };
   if (found.wallet) args.wallet = found.wallet;
   const { data, error } = await supabase.auth.signInWithWeb3(args);
   if (error) {
-    console.error('[wallet] signInWithWeb3', found.kind, error);
+    console.error('[wallet] signInWithWeb3', found.kind || found.name, error);
     throw new Error(error.message || 'the wallet did not sign');
   }
   return data?.session || null;
