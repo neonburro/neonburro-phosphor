@@ -29,12 +29,21 @@ export const handler = async () => {
     return json(200, { ok: false });
   }
 
+  // The guest list, migration 0004. A granted wallet keeps eligible no
+  // matter what the chain says, otherwise the sweep would revoke the send a
+  // burro hundred within the hour. A missing table reads as an empty list.
+  let grants = new Set();
+  try {
+    const { data: g } = await db.from('burrow_grants').select('wallet');
+    grants = new Set((g || []).map((x) => x.wallet));
+  } catch { /* before 0004 lands */ }
+
   let flipped = 0;
   let skipped = 0;
   for (const r of rows || []) {
     try {
       const balance = await balanceOf(r.wallet);
-      const eligible = balance >= min;
+      const eligible = balance >= min || grants.has(r.wallet);
       await db.from('burrow_holders').update({ balance, eligible, checked_at: new Date().toISOString() }).eq('wallet', r.wallet);
       if (eligible !== r.eligible) flipped += 1;
     } catch (err) {

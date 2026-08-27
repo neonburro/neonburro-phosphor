@@ -35,6 +35,18 @@ const addressOf = (user) => {
   return c.address || m.address || fromIdentity || null;
 };
 
+// The guest list, migration 0004. A wallet on burrow_grants comes in by name
+// regardless of balance, built for the send a burro hundred. Answers false
+// rather than throwing so a missing table cannot close the door on holders.
+const grantedFor = async (db, wallet) => {
+  try {
+    const { data } = await db.from('burrow_grants').select('wallet').eq('wallet', wallet).maybeSingle();
+    return Boolean(data);
+  } catch {
+    return false;
+  }
+};
+
 export const handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: corsHeaders, body: '' };
   // GET is the stethoscope. No session, no wallet, no balance, it only says
@@ -75,7 +87,9 @@ export const handler = async (event) => {
   const wallet = addressOf(user);
   if (!wallet) return json(200, { ok: false, reason: 'quiet', error: 'no wallet on the session' });
 
-  let balance;
+  const granted = await grantedFor(db, wallet);
+
+  let balance = 0;
   let sol = null;
   try {
     balance = await balanceOf(wallet);
@@ -86,11 +100,13 @@ export const handler = async (event) => {
     } catch { /* the wallet tab shows a dash */ }
   } catch (err) {
     console.error('[holder-check] rpc', err.message);
-    return json(200, { ok: false, reason: 'quiet', error: 'the chain did not answer. try again in a minute.' });
+    // A guest enters on a quiet chain, the guest list is our own database.
+    // Anybody else waits, fail closed as always.
+    if (!granted) return json(200, { ok: false, reason: 'quiet', error: 'the chain did not answer. try again in a minute.' });
   }
 
   const min = await threshold(db);
-  const eligible = balance >= min;
+  const eligible = balance >= min || granted;
   const now = new Date().toISOString();
 
   let patch = {};
