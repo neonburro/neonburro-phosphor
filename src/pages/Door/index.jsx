@@ -305,7 +305,16 @@ const Door = () => {
 
         {addr && phase !== 'resting' && (
           <HStack spacing={2} px={3} py={1.5} borderRadius="full" border="1px solid" borderColor={colors.accent.chainAlpha[32]} bg={colors.accent.chainAlpha[8]}>
-            <Box w="5px" h="5px" borderRadius="full" bg={colors.accent.chain} />
+            {/* the one breath on the door. the chain dot swells like a slow
+                heartbeat, the same tack the studio hero disc carries, and
+                reduced motion holds it still. */}
+            <Box w="5px" h="5px" borderRadius="full" bg={colors.accent.chain}
+              sx={{
+                '@media (prefers-reduced-motion: no-preference)': {
+                  '@keyframes doorBreath': { '0%, 100%': { transform: 'scale(1)', opacity: 1 }, '50%': { transform: 'scale(1.45)', opacity: 0.75 } },
+                  animation: 'doorBreath 3.2s ease-in-out infinite',
+                },
+              }} />
             <Text fontFamily="mono" fontSize="11px" color={colors.text.secondary}>{short(addr)}</Text>
           </HStack>
         )}
