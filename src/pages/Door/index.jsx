@@ -27,15 +27,44 @@ import { RAIL, MEASURE, EASE } from '../../theme/layout';
 import TokenChip from '../../components/TokenChip';
 import { signIn, detect, detectAll, addressOf, short, seen } from '../../lib/wallet';
 const EPOCH_FACE = 'https://neonburro.com/token/epoch-avatar.webp';
-const HERE = typeof window !== 'undefined' ? window.location.href : 'https://phosphor.neonburro.com/';
-const PHANTOM_LINK = `https://phantom.app/ul/browse/${encodeURIComponent(HERE)}?ref=${encodeURIComponent(HERE)}`;
-const SOLFLARE_LINK = `https://solflare.com/ul/v1/browse/${encodeURIComponent(HERE)}?ref=${encodeURIComponent(HERE)}`;
+// ── THE DEEP LINK TARGET IS READ WHEN YOU TAP, NOT WHEN THE MODULE LOADS ────
+//
+// HERE used to be a module level const. In a single page app that is evaluated
+// once, on whichever url happened to import this module first, so a visitor who
+// landed anywhere else and then walked to the door handed the wallet a stale
+// address. The wallet dutifully opened THAT page in its browser, the door was
+// not on screen, and the whole thing looked like being signed up fresh.
+//
+// It is a function now. Every link is built from window.location.href at the
+// moment it is rendered, so the wallet always reopens the door the visitor is
+// actually standing at.
+const here = () => (typeof window !== 'undefined' ? window.location.href : 'https://phosphor.neonburro.com/');
+
+// ── A PHONE IS NOT A SMALL DESKTOP ──────────────────────────────────────────
+//
+// A phone browser has no extension, so nothing injects window.solana and
+// detect() correctly finds nothing. The old code then showed the QR handoff,
+// which is a DESKTOP mechanic. Its own alt text says scan with your signed in
+// phone. Showing it to somebody holding the phone asks them to scan a code with
+// the device displaying it.
+//
+// So the door has to know which it is talking to. Coarse pointer and a narrow
+// viewport, checked at render rather than cached, because a tablet can change
+// its mind on rotate. On a phone the wallet links become the answer and the QR
+// is hidden. On a desktop nothing changes.
+const onPhone = () => {
+  if (typeof window === 'undefined') return false;
+  return window.matchMedia('(pointer: coarse)').matches && window.innerWidth < 820;
+};
+
+const PHANTOM_LINK = () => `https://phantom.app/ul/browse/${encodeURIComponent(here())}?ref=${encodeURIComponent(here())}`;
+const SOLFLARE_LINK = () => `https://solflare.com/ul/v1/browse/${encodeURIComponent(here())}?ref=${encodeURIComponent(here())}`;
 // Documented deep links only. Trust publishes link.trustwallet.com open_url
 // with coin 501 for solana and coinbase publishes go.cb-w.com dapp. Okx and
 // backpack publish nothing reliable, their in app browsers arrive through the
 // wallet standard on their own.
-const TRUST_LINK = `https://link.trustwallet.com/open_url?coin_id=501&url=${encodeURIComponent(HERE)}`;
-const COINBASE_LINK = `https://go.cb-w.com/dapp?cb_url=${encodeURIComponent(HERE)}`;
+const TRUST_LINK = () => `https://link.trustwallet.com/open_url?coin_id=501&url=${encodeURIComponent(here())}`;
+const COINBASE_LINK = () => `https://go.cb-w.com/dapp?cb_url=${encodeURIComponent(here())}`;
 import { supabase, remembered, setRemembered } from '../../lib/supabase';
 import { useEffect } from 'react';
 import { check, tokens, knownHandle } from '../../lib/holder';
@@ -355,7 +384,11 @@ const Door = () => {
         </VStack>
 
         <HStack spacing={3} pt={4} borderTop="1px solid" borderColor={colors.surface.line} w="100%" flexWrap="wrap" rowGap={2}>
-          <Text fontFamily="mono" fontSize="12px" color={colors.text.muted}>
+          {/* On a phone this line is the instruction rather than an aside, so it
+              reads at the same weight as the buttons under it and in the primary
+              ink. On a desktop it stays the quiet footnote it always was. */}
+          <Text fontFamily="mono" fontSize={onPhone() ? '13px' : '12px'}
+            color={onPhone() ? colors.text.primary : colors.text.muted} w={onPhone() ? '100%' : 'auto'}>
             {phase === 'nowallet' ? t('door_not_found') : t('door_no_wallet')}
           </Text>
           {phase === 'nowallet' && (
@@ -364,23 +397,27 @@ const Door = () => {
                   walks itself into the wallet's own browser. Universal links,
                   phantom and solflare both reopen this exact url inside their
                   app where window.solana exists and the button works. */}
-              <Box as="a" href={PHANTOM_LINK} fontFamily="mono" fontSize="12px" color={colors.accent.signal}
-                border="1px solid" borderColor={colors.accent.signalAlpha[32]} borderRadius="full" px={3} py={1}
+              <Box as="a" href={PHANTOM_LINK()} fontFamily="mono" fontSize={onPhone() ? '13px' : '12px'} color={colors.accent.signal}
+                border="1px solid" borderColor={colors.accent.signalAlpha[32]} borderRadius="full"
+                px={onPhone() ? 5 : 3} py={onPhone() ? 2.5 : 1}
                 _hover={{ bg: colors.accent.signalAlpha[8] }}>
                 {t('door_open_phantom')}
               </Box>
-              <Box as="a" href={SOLFLARE_LINK} fontFamily="mono" fontSize="12px" color={colors.accent.signal}
-                border="1px solid" borderColor={colors.accent.signalAlpha[32]} borderRadius="full" px={3} py={1}
+              <Box as="a" href={SOLFLARE_LINK()} fontFamily="mono" fontSize={onPhone() ? '13px' : '12px'} color={colors.accent.signal}
+                border="1px solid" borderColor={colors.accent.signalAlpha[32]} borderRadius="full"
+                px={onPhone() ? 5 : 3} py={onPhone() ? 2.5 : 1}
                 _hover={{ bg: colors.accent.signalAlpha[8] }}>
                 {t('door_open_solflare')}
               </Box>
-              <Box as="a" href={TRUST_LINK} fontFamily="mono" fontSize="12px" color={colors.accent.signal}
-                border="1px solid" borderColor={colors.accent.signalAlpha[32]} borderRadius="full" px={3} py={1}
+              <Box as="a" href={TRUST_LINK()} fontFamily="mono" fontSize={onPhone() ? '13px' : '12px'} color={colors.accent.signal}
+                border="1px solid" borderColor={colors.accent.signalAlpha[32]} borderRadius="full"
+                px={onPhone() ? 5 : 3} py={onPhone() ? 2.5 : 1}
                 _hover={{ bg: colors.accent.signalAlpha[8] }}>
                 {t('door_open_trust')}
               </Box>
-              <Box as="a" href={COINBASE_LINK} fontFamily="mono" fontSize="12px" color={colors.accent.signal}
-                border="1px solid" borderColor={colors.accent.signalAlpha[32]} borderRadius="full" px={3} py={1}
+              <Box as="a" href={COINBASE_LINK()} fontFamily="mono" fontSize={onPhone() ? '13px' : '12px'} color={colors.accent.signal}
+                border="1px solid" borderColor={colors.accent.signalAlpha[32]} borderRadius="full"
+                px={onPhone() ? 5 : 3} py={onPhone() ? 2.5 : 1}
                 _hover={{ bg: colors.accent.signalAlpha[8] }}>
                 {t('door_open_coinbase')}
               </Box>
@@ -410,7 +447,11 @@ const Door = () => {
           )}
         </HStack>
 
-        {qr && (
+        {/* Desktop only. This is the scan it with your other device handoff,
+            and its own alt text says as much, so showing it on a phone asks
+            somebody to scan a code with the screen they are holding. The wallet
+            links above are the phone's answer. */}
+        {qr && !onPhone() && (
           <VStack align="start" spacing={3} pt={4} borderTop="1px solid" borderColor={colors.surface.line} w="100%">
             <Text fontFamily="mono" fontSize="12px" color={colors.text.primary}>{t('door_phone')}</Text>
             <Text fontFamily="mono" fontSize="11px" color={colors.text.muted} maxW="360px">{t('door_phone_line')}</Text>
