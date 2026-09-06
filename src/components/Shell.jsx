@@ -119,7 +119,7 @@ const AppNav = ({ pathname, search }) => {
           {tab.icon === 'pocket' && <FiPocket size={18} color={active(tab) ? colors.accent.signal : colors.text.secondary} />}
           {tab.icon === 'talk' && <FiMessageSquare size={18} color={active(tab) ? colors.accent.signal : colors.text.secondary} />}
           {tab.icon === 'epoch' && (
-            <Box as="img" src="https://neonburro.com/token/epoch-avatar.webp" alt="" w="24px" h="24px" borderRadius="8px" objectFit="cover"
+            <Box as="img" src="/epoch-avatar.webp" alt="" w="24px" h="24px" borderRadius="8px" objectFit="cover"
               border="1px solid" borderColor={active(tab) ? colors.accent.signalAlpha[32] : 'transparent'} />
           )}
         </Box>

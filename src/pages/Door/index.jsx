@@ -26,7 +26,7 @@ import colors from '../../theme/colors';
 import { RAIL, MEASURE, EASE } from '../../theme/layout';
 import TokenChip from '../../components/TokenChip';
 import { signIn, detect, detectAll, addressOf, short, seen } from '../../lib/wallet';
-const EPOCH_FACE = 'https://neonburro.com/token/epoch-avatar.webp';
+const EPOCH_FACE = '/epoch-avatar.webp';
 // ── THE DEEP LINK TARGET IS READ WHEN YOU TAP, NOT WHEN THE MODULE LOADS ────
 //
 // HERE used to be a module level const. In a single page app that is evaluated
@@ -281,7 +281,7 @@ const Door = () => {
           plate as the share card, served from the studio, pull from one. A
           gradient keeps the reading column dark and the words in front. */}
       <Box position="absolute" inset={0} pointerEvents="none" aria-hidden="true"
-        bgImage="url('https://neonburro.com/token/holders-in-glasses.webp')"
+        bgImage="url('/holders-in-glasses.webp')"
         bgSize="cover" bgPosition="center 30%" opacity={0.06}
         filter="grayscale(0.4)" />
       <Box position="absolute" inset={0} pointerEvents="none" aria-hidden="true"
