@@ -1,7 +1,7 @@
 // src/pages/Room/index.jsx
-// SENTINEL: NB_BURROW_ROOM_V2
+// SENTINEL: NB_BURROW_ROOM_V3
 //
-// The room, second cut. A messenger. Rooms down the left rail, the talk on
+// The room, third cut. A messenger. Rooms down the left rail, the talk on
 // the right, a composer that would rather be spoken into than typed into.
 // The reference Tyler gave is Telegram, and the reading of it here is: a
 // rail of rooms, one canvas with grouped bubbles, a wallpaper that is ours
@@ -19,14 +19,32 @@
 // Messages from the same hand within five minutes group into one block, the
 // handle printed once, the way a person talks in bursts.
 //
-// ── HOLD TO TALK ────────────────────────────────────────────────────────────
-// Press and hold the dot, speak, let go, the words are in the input. The Web
-// Speech API, on device, free, in the visitor's own language from their
-// profile. Where the API is missing (some in app wallet browsers) the dot
-// simply is not there and typing still works. Tyler is against typing, the
-// dot is the point, the keyboard is the fallback. The studio's hallway at
-// neonburro/src/pages/Token/index.jsx carries the same hold to talk mechanic,
-// duplicated on purpose, change it thoughtfully in both.
+// ── HOLD TO TALK, TWO RAILS ─────────────────────────────────────────────────
+// Press and hold the dot, speak, let go, the words are in the input. The
+// language is the profile's, from the holder row with localStorage as the
+// spare, and there is no picker on the button. lib/speech.js decides the
+// rail once per load:
+//
+//   speech   the Web Speech API, on device, free, live. Chrome and Safari.
+//   record   MediaRecorder captures the hold, release posts the audio to
+//            netlify/functions/transcribe.js (deepgram nova-3, keyed, never
+//            in the browser), the text lands in the draft. This is every
+//            wallet in app browser on iphone, phantom solflare backpack,
+//            which have no SpeechRecognition or refuse its service.
+//   none     no dot. The keyboard is the fallback.
+//
+// speech flips to record mid hold when start() answers service-not-allowed,
+// some webviews expose the constructor and refuse the service, so the ask
+// is the only test. If the mic itself is refused the dot goes away and the
+// safari line from copy.js sits above the composer. Tyler is against typing,
+// the dot is the point, the keyboard is what remains.
+//
+// Either rail puts words in the draft and the person presses send. Nothing
+// is ever sent on their behalf. The studio's hallway at
+// neonburro/src/pages/Token/index.jsx carries the speech rail alone, the
+// record rail is the room's for now, change the speech half thoughtfully in
+// both. The dot carries touch-action none and no callout so an iphone long
+// press records instead of opening the copy menu.
 //
 // ── EPOCH ───────────────────────────────────────────────────────────────────
 // In the coin room, one pinned line under the header says whose desk it is,
@@ -38,7 +56,7 @@
 //
 // No oxford commas, no em dashes. hue•man with the interpunct.
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Box, HStack, Text, VStack, Input, useBreakpointValue } from '@chakra-ui/react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import colors from '../../theme/colors';
@@ -46,11 +64,13 @@ import { EASE } from '../../theme/layout';
 import { useHolder } from '../../lib/holder';
 import { signOut } from '../../lib/wallet';
 import { fetchRooms, fetchMessages, sendMessage, onMessage, wakeEpoch } from '../../lib/rooms';
+import { talkMode, speechLang, startRecording, transcribe } from '../../lib/speech';
 import { t, currentLang } from '../../data/copy';
 
 const kicker = { fontFamily: 'mono', fontSize: '10px', fontWeight: '500', letterSpacing: '0.2em', textTransform: 'uppercase' };
 const MONO = 'mono';
 const GROUP_S = 300;
+const NOTE_MS = 4000;
 
 // The wallpaper. One drawn swirl, tiled, at five percent. Ours, not a doodle.
 const CLOUD =
@@ -88,10 +108,18 @@ const Room = () => {
   const [msgs, setMsgs] = useState([]);
   const [draft, setDraft] = useState('');
   const [talking, setTalking] = useState(false);
+  const [hearing, setHearing] = useState(false);
+  const [mode, setMode] = useState(() => talkMode());
+  const [micLine, setMicLine] = useState(null);
+  const [note, setNote] = useState(null);
   const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
   const feed = useRef(null);
   const recog = useRef(null);
+  const recorder = useRef(null);
+  const holding = useRef(false);
+  const noteTimer = useRef(null);
   const me = holder.holder?.handle || null;
+  const lang = holder.holder?.lang || currentLang();
 
   useEffect(() => {
     if (holder.state === 'out' || holder.state === 'under') nav('/');
@@ -124,30 +152,98 @@ const Room = () => {
     return () => clearInterval(id);
   }, []);
 
+  useEffect(() => () => clearTimeout(noteTimer.current), []);
+
   useEffect(() => {
     feed.current?.scrollTo({ top: feed.current.scrollHeight, behavior: 'smooth' });
   }, [msgs.length, open]);
 
-  const canTalk = useMemo(() => typeof window !== 'undefined' && Boolean(window.SpeechRecognition || window.webkitSpeechRecognition), []);
+  // A sentence above the composer for a few seconds, then gone.
+  const flash = (line) => {
+    clearTimeout(noteTimer.current);
+    setNote(line);
+    noteTimer.current = setTimeout(() => setNote(null), NOTE_MS);
+  };
 
-  const holdStart = () => {
+  const heard = (said) => {
+    const s = (said || '').trim();
+    if (s) setDraft((d) => (d ? `${d} ${s}` : s));
+  };
+
+  // Rail two. Opens the mic, records until release, posts, lands the words.
+  const recordStart = async () => {
+    try {
+      const h = await startRecording();
+      recorder.current = h;
+      setTalking(true);
+      if (!holding.current) recordEnd();
+    } catch {
+      setTalking(false);
+      setMode('none');
+      setMicLine(t('room_talk_safari'));
+    }
+  };
+
+  const recordEnd = async () => {
+    const h = recorder.current;
+    recorder.current = null;
+    setTalking(false);
+    if (!h) return;
+    const blob = await h.stop();
+    if (!blob) return;
+    setHearing(true);
+    const r = await transcribe(blob, lang);
+    setHearing(false);
+    if (r?.ok && r.text) heard(r.text);
+    else if (r?.reason === 'long') flash(t('room_talk_long'));
+    else if (r?.reason && r.reason !== 'nothing') flash(t('room_talk_quiet'));
+  };
+
+  // Rail one. The Web Speech API, live into the draft. A refused service
+  // flips this load to rail two and keeps the hold that is already down.
+  const speechStart = () => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) return;
+    if (!SR) { setMode('record'); recordStart(); return; }
     const r = new SR();
-    const lang = currentLang();
-    r.lang = lang === 'ja' ? 'ja-JP' : lang === 'es' ? 'es-MX' : 'en-US';
+    r.lang = speechLang(lang);
     r.interimResults = false;
     r.continuous = true;
-    r.onresult = (e) => {
-      const said = [...e.results].map((x) => x[0]?.transcript || '').join(' ').trim();
-      if (said) setDraft((d) => (d ? `${d} ${said}` : said));
+    r.onresult = (e) => heard([...e.results].map((x) => x[0]?.transcript || '').join(' '));
+    r.onerror = (e) => {
+      if (e?.error === 'service-not-allowed' || e?.error === 'language-not-supported') {
+        recog.current = null;
+        setTalking(false);
+        setMode('record');
+        if (holding.current) recordStart();
+      }
     };
-    r.onend = () => setTalking(false);
+    r.onend = () => { if (recog.current === r) setTalking(false); };
     recog.current = r;
     setTalking(true);
-    r.start();
+    try {
+      r.start();
+    } catch {
+      recog.current = null;
+      setTalking(false);
+      setMode('record');
+      recordStart();
+    }
   };
-  const holdEnd = () => { recog.current?.stop(); };
+
+  const holdStart = (e) => {
+    if (e?.pointerType === 'mouse' && e.button !== 0) return;
+    if (holding.current || hearing) return;
+    holding.current = true;
+    if (mode === 'speech') speechStart();
+    else if (mode === 'record') recordStart();
+  };
+
+  const holdEnd = () => {
+    if (!holding.current) return;
+    holding.current = false;
+    recog.current?.stop();
+    recordEnd();
+  };
 
   const send = async () => {
     const body = draft.trim();
@@ -165,6 +261,8 @@ const Room = () => {
   const room = rooms.find((r) => r.slug === open) || null;
   const showRail = desktop || !open;
   const showChat = desktop || Boolean(open);
+  const showDot = mode !== 'none' && !micLine;
+  const line = micLine || note;
 
   // Group consecutive messages from one hand inside five minutes.
   const grouped = msgs.reduce((acc, m) => {
@@ -294,14 +392,22 @@ const Room = () => {
             </VStack>
           </Box>
 
-          <HStack px={{ base: 3, md: 5 }} py={3} spacing={2.5} borderTop="1px solid" borderColor={colors.surface.line}>
-            {canTalk && (
+          {line && (
+            <Box px={{ base: 4, md: 6 }} pt={2.5} borderTop="1px solid" borderColor={colors.surface.line}>
+              <Text fontFamily={MONO} fontSize="11px" color={colors.text.muted}>{line}</Text>
+            </Box>
+          )}
+
+          <HStack px={{ base: 3, md: 5 }} py={3} spacing={2.5} borderTop={line ? 'none' : '1px solid'} borderColor={colors.surface.line}>
+            {showDot && (
               <Box
                 as="button"
                 type="button"
                 onPointerDown={holdStart}
                 onPointerUp={holdEnd}
-                onPointerLeave={() => talking && holdEnd()}
+                onPointerCancel={holdEnd}
+                onPointerLeave={() => holding.current && holdEnd()}
+                onContextMenu={(e) => e.preventDefault()}
                 aria-label={t('room_hold')}
                 title={t('room_hold')}
                 w="44px"
@@ -311,9 +417,11 @@ const Room = () => {
                 border="1px solid"
                 borderColor={talking ? colors.accent.signal : colors.surface.lineStrong}
                 bg={talking ? colors.accent.signalAlpha[16] : 'transparent'}
+                opacity={hearing ? 0.5 : 1}
                 display="grid"
                 placeItems="center"
-                transition={`border-color 200ms ${EASE}, background 200ms ${EASE}`}
+                transition={`border-color 200ms ${EASE}, background 200ms ${EASE}, opacity 200ms ${EASE}`}
+                sx={{ touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }}
               >
                 <Box w="10px" h="10px" borderRadius="full" bg={talking ? colors.accent.signal : colors.text.muted}
                   boxShadow={talking ? `0 0 12px ${colors.accent.signal}` : 'none'}
@@ -325,7 +433,7 @@ const Room = () => {
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
-              placeholder={t('room_say')}
+              placeholder={hearing ? `${t('room_talk_writing')}...` : t('room_say')}
               h="44px"
               borderRadius="full"
             />

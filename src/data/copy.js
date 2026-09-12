@@ -1,10 +1,17 @@
 // src/data/copy.js
 //
-// Every sentence a visitor reads, in english, japanese and spanish, keyed.
+// Every sentence a visitor reads, in english, japanese and chinese, keyed.
 // The first three languages Tyler named. The rest arrive with the speech work,
 // see docs/speech.md, and should be added here as columns, never as a second
 // file. A missing key falls back to english so a half translated room still
-// reads.
+// reads. Adding a language here also means adding its tag to speechLang() in
+// src/lib/speech.js and its code to LANGS in netlify/functions/transcribe.js,
+// the hold to talk dot sends the profile id straight through.
+//
+// The room_talk_ lines are the dot's own sentences: safari is shown when the
+// mic itself is refused (a wallet webview that will not open it), quiet when
+// the server ear does not answer, long when a hold ran past a minute,
+// writing while the words are on their way back.
 //
 // House voice in every language: lowercase, periods over commas, the • between
 // things, never a dollar, never hype. A translator should keep the tone, not
@@ -99,6 +106,10 @@ export const COPY = {
     ledger_week_delta: 'this week',
     ledger_empty: 'the week has not been written yet. epoch reads the coin every hour, come back after the top of one.',
     room_ledger: 'ledger',
+    room_talk_safari: 'this browser cannot hear you. open this page in safari to talk, or type it here.',
+    room_talk_quiet: 'the ear is quiet right now. type it, or try again in a minute.',
+    room_talk_long: 'keep it under a minute.',
+    room_talk_writing: 'writing it down',
   },
   ja: {
     door_kicker: 'phosphor. • by neonburro',
@@ -180,6 +191,10 @@ export const COPY = {
     ledger_week_delta: '今週',
     ledger_empty: 'まだ一週間分の記録がない。epochは毎時間読み取っている。時が満ちたらまた。',
     room_ledger: '台帳',
+    room_talk_safari: 'このブラウザでは声が届かない。話すならsafariでこのページを開くか、ここに打って。',
+    room_talk_quiet: '耳が今静か。打つか、少ししてからもう一度。',
+    room_talk_long: '一分以内で。',
+    room_talk_writing: '書き取っている',
   },
 
   zh: {
@@ -262,6 +277,10 @@ export const COPY = {
     ledger_week_delta: '本周',
     ledger_empty: '这一周还没写下。epoch 每小时记一笔，整点之后再来。',
     room_ledger: '账簿',
+    room_talk_safari: '这个浏览器听不到你。想说话就在 safari 里打开此页，或者在这里打字。',
+    room_talk_quiet: '耳朵现在很安静。打字，或过一分钟再试。',
+    room_talk_long: '一分钟以内。',
+    room_talk_writing: '正在记下',
   },
 };
 
