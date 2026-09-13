@@ -38,13 +38,25 @@
 // the stamp trigger signs him like anybody. The room renders his handle in
 // teal, see Room/index.jsx.
 //
+// ── THE METER ───────────────────────────────────────────────────────────────
+// 2026-09-13. Every answer writes one agent_usage row in the shared project
+// through _usage.js, the model the response says it used (with the server
+// side fallback on, that can be a different model than MODEL, and the row
+// must say which) and the response's usage object. The write starts the
+// moment the model returns and is settled last, after his row is inserted,
+// so it overlaps the two database round trips he does anyway and holds the
+// reply for at most the ceiling in _usage.js. A held or refused answer that
+// never reached the model writes nothing.
+//
 // No oxford commas, no em dashes. hue•man with the interpunct.
 
 import Anthropic from '@anthropic-ai/sdk';
 import { adminClient, json, corsHeaders } from './_shared.js';
+import { recordUsage } from './_usage.js';
 
 const MODEL = 'claude-fable-5';
 const ROOM = 'the-coin';
+const SITE = 'phosphor.neonburro.com';
 const EPOCH_EMAIL = 'epoch@neonburro.com';
 const EPOCH_PER_DAY = 40;
 const EPOCH_ROOM_PER_DAY = 400;
@@ -164,6 +176,7 @@ export const handler = async (event) => {
   const numbers = await briefing();
 
   let reply = null;
+  let metered = Promise.resolve(false);
   try {
     const response = await anthropic.beta.messages.create({
       model: MODEL,
@@ -182,6 +195,7 @@ export const handler = async (event) => {
         },
       ],
     });
+    metered = recordUsage({ burro: 'epoch', model: response.model || MODEL, usage: response.usage, site: SITE, requestId: response.id || null, clientId: null });
     if (response.stop_reason === 'refusal') {
       reply = 'that one stays in the drawer.';
     } else {
@@ -191,12 +205,19 @@ export const handler = async (event) => {
     console.error('[epoch] anthropic', err.status || '', err.message);
     return json(200, { ok: false, reason: 'quiet' });
   }
-  if (!reply) return json(200, { ok: false, reason: 'quiet' });
+  if (!reply) {
+    await metered;
+    return json(200, { ok: false, reason: 'quiet' });
+  }
 
   const uid = await epochUser(db);
-  if (!uid) return json(200, { ok: false, reason: 'quiet' });
+  if (!uid) {
+    await metered;
+    return json(200, { ok: false, reason: 'quiet' });
+  }
 
   const { error: insertErr } = await db.from('burrow_messages').insert({ room: ROOM, user_id: uid, body: reply.slice(0, 2000) });
+  await metered;
   if (insertErr) {
     console.error('[epoch] insert', insertErr.message);
     return json(200, { ok: false, reason: 'quiet' });
