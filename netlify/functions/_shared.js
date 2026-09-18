@@ -1,14 +1,14 @@
 // netlify/functions/_shared.js
 //
-// What every burrow function needs. The cors headers, the key ladder, the
-// admin client, the rpc call and the threshold read. Small on purpose, this is
-// the room's plumbing and plumbing should be boring.
+// What every burrow function needs. The CORS headers, server client, RPC call
+// and holder threshold live here so the gate and its sweep use one source.
+// Changing this file changes every server-side holder decision.
 //
-// ── THE KEY LADDER ──────────────────────────────────────────────────────────
-// The same idea as the studio's _shared.js and for the same reason: in August
-// a dead SUPABASE_SECRET_KEY silently stopped the forms for four months. The
-// ladder tries every server key name in order and says which one worked, so a
-// dead key is one log line and not a season.
+// SERVER KEYS
+// Service role leads because it is the proven server key in this project.
+// SUPABASE_SECRET_KEY is a compatibility spare. Only the first configured key
+// is used, so a configured but invalid first key must be repaired in Netlify.
+// No key or signing material may ever be returned by these helpers.
 //
 // No oxford commas, no em dashes.
 
@@ -25,21 +25,13 @@ export const MINT = 'EdBEwPyso39z2ow59frpuLUVz5axm61dnqAeAuxYpump';
 export const supabaseUrl = () => process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || null;
 
 export const serverKey = () => {
-  // SERVICE_ROLE leads on purpose. The studio's SUPABASE_SECRET_KEY has been
-  // answering 401 since August and it was copied here alongside the good key,
-  // and this function takes the FIRST rung rather than falling through. The
-  // proven key goes first, the doubtful one is the spare. If the secret key
-  // is ever reissued and preferred, swap the order and say why here.
   const ladder = [
     ['SUPABASE_SERVICE_ROLE_KEY', process.env.SUPABASE_SERVICE_ROLE_KEY],
     ['SUPABASE_SECRET_KEY', process.env.SUPABASE_SECRET_KEY],
-  ].filter(([, v]) => Boolean(v));
+  ].filter(([, value]) => Boolean(value));
   return ladder[0] || [null, null];
 };
 
-// The admin client. Service role, RLS bypassed, so nothing beyond these
-// functions ever holds it. Returns null rather than throwing so a handler can
-// answer with a sentence.
 export const adminClient = () => {
   const url = supabaseUrl();
   const [name, key] = serverKey();
@@ -51,47 +43,48 @@ export const adminClient = () => {
   return createClient(url, key, { auth: { persistSession: false } });
 };
 
-// Accepts a full url or a bare helius api key, because a key pasted alone is
-// exactly what happened the first night and the door looped on a value that
-// could not be dialled. Anything that does not start with http is treated as
-// a helius key and given its proper address.
-const RPC = () => {
-  const v = (process.env.SOLANA_RPC_URL || '').trim();
-  if (!v) return 'https://api.mainnet-beta.solana.com';
-  if (/^https?:\/\//i.test(v)) return v;
-  return `https://mainnet.helius-rpc.com/?api-key=${v}`;
+// A full URL is preferred. A bare Helius key is accepted for compatibility
+// with the first environment setup. The value stays inside the function.
+const rpcUrl = () => {
+  const value = (process.env.SOLANA_RPC_URL || '').trim();
+  if (!value) return 'https://api.mainnet-beta.solana.com';
+  if (/^https?:\/\//i.test(value)) return value;
+  return `https://mainnet.helius-rpc.com/?api-key=${value}`;
 };
 
 export const rpc = async (method, params) => {
-  const res = await fetch(RPC(), {
+  const response = await fetch(rpcUrl(), {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
   });
-  if (!res.ok) throw new Error(`rpc ${res.status}`);
-  const json = await res.json();
-  if (json.error) throw new Error(`rpc ${method} ${json.error.message || json.error.code}`);
-  return json.result;
+  if (!response.ok) throw new Error(`rpc ${response.status}`);
+  const payload = await response.json();
+  if (payload.error) throw new Error(`rpc ${method} ${payload.error.message || payload.error.code}`);
+  return payload.result;
 };
 
-// Whole NEONBURRO held by a wallet, summed across its token accounts. Throws
-// on rpc failure so callers can tell "could not look" from "holds nothing",
-// which is the difference between the quiet sentence and the door saying no.
+// Whole NEONBURRO held by a wallet, summed across its token accounts. RPC
+// failure throws so callers never confuse an unavailable node with zero.
 export const balanceOf = async (wallet) => {
   const owned = await rpc('getTokenAccountsByOwner', [wallet, { mint: MINT }, { encoding: 'jsonParsed' }]);
-  return (owned?.value || []).reduce((sum, acc) => {
-    const n = Number(acc?.account?.data?.parsed?.info?.tokenAmount?.uiAmountString);
-    return sum + (Number.isFinite(n) ? n : 0);
+  return (owned?.value || []).reduce((sum, account) => {
+    const amount = Number(account?.account?.data?.parsed?.info?.tokenAmount?.uiAmountString);
+    return sum + (Number.isFinite(amount) ? amount : 0);
   }, 0);
 };
 
-// The threshold, from burrow_settings. Pulse edits the row, the door reads it,
-// nobody redeploys to change the number. Falls back to the seed value so a
-// missing row fails closed at the seeded height rather than open at zero.
+// Pulse will edit this row later. The fallback matches Tyler's current ruling
+// so a missing row never silently restores the retired five-million gate.
 export const threshold = async (db) => {
-  const { data } = await db.from('burrow_settings').select('value').eq('key', 'min_balance').maybeSingle();
-  const n = Number(data?.value);
-  return Number.isFinite(n) && n > 0 ? n : 5_000_000;
+  const { data, error } = await db
+    .from('burrow_settings')
+    .select('value')
+    .eq('key', 'min_balance')
+    .maybeSingle();
+  if (error) console.error('[burrow] threshold', error.message);
+  const amount = Number(data?.value);
+  return Number.isFinite(amount) && amount > 0 ? amount : 1_000_000;
 };
 
 export const json = (statusCode, body) => ({

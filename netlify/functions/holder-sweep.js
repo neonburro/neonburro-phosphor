@@ -1,60 +1,134 @@
 // netlify/functions/holder-sweep.js
 //
-// The slow half of the gate, scheduled hourly in netlify.toml. Every wallet
-// the burrow has ever seen gets its balance read again and its eligible flag
-// set to the truth. holder-check.js catches a wallet the moment it visits,
-// this catches the one that stopped visiting, so the room's count is honest
-// even when nobody is home.
+// The scheduled half of the holder gate. Each run reads a small ordered slice
+// of wallets, checks the chain with limited concurrency and saves a cursor for
+// the next run. Bounded batches matter because Netlify scheduled functions have
+// a short execution ceiling and the first all-wallet loop nearly spent it on
+// deliberate sleep before making the RPC calls.
 //
-// Batched politely. A keyed rpc allows a burst but there is no hurry at all,
-// so wallets go one at a time with a breath between, and an rpc failure skips
-// the wallet rather than flipping it. A flag should only ever change because
-// the chain answered.
+// An RPC failure skips that wallet and never changes its eligibility. Grants
+// remain eligible. The cursor wraps only after the final page so every known
+// holder is revisited without one long function.
 //
 // No oxford commas, no em dashes.
 
 import { adminClient, balanceOf, threshold, json } from './_shared.js';
 
-const BREATH_MS = 250;
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const BATCH_SIZE = 12;
+const CONCURRENCY = 3;
+const CURSOR_KEY = 'holder_sweep_cursor';
+
+const cursorOf = async (db) => {
+  const { data, error } = await db
+    .from('burrow_settings')
+    .select('value')
+    .eq('key', CURSOR_KEY)
+    .maybeSingle();
+  if (error) {
+    console.error('[holder-sweep] cursor read', error.message);
+    return '';
+  }
+  return String(data?.value || '');
+};
+
+const saveCursor = async (db, value) => {
+  const { error } = await db.from('burrow_settings').upsert({
+    key: CURSOR_KEY,
+    value,
+    note: 'last wallet visited by the bounded Phosphor holder sweep',
+    updated_at: new Date().toISOString(),
+  });
+  if (error) throw new Error(`cursor write ${error.message}`);
+};
+
+const grantSet = async (db) => {
+  const { data, error } = await db.from('burrow_grants').select('wallet');
+  if (error) {
+    console.error('[holder-sweep] grants', error.message);
+    return new Set();
+  }
+  return new Set((data || []).map((row) => row.wallet));
+};
+
+const updateOne = async (db, row, min, grants) => {
+  try {
+    const balance = await balanceOf(row.wallet);
+    const eligible = balance >= min || grants.has(row.wallet);
+    const { error } = await db
+      .from('burrow_holders')
+      .update({ balance, eligible, checked_at: new Date().toISOString() })
+      .eq('wallet', row.wallet);
+    if (error) throw new Error(error.message);
+    return { flipped: eligible !== row.eligible, skipped: false };
+  } catch (error) {
+    console.error('[holder-sweep]', row.wallet.slice(0, 6), error.message);
+    return { flipped: false, skipped: true };
+  }
+};
 
 export const handler = async () => {
   const db = adminClient();
   if (!db) return json(200, { ok: false, error: 'no database' });
 
-  const min = await threshold(db);
-  const { data: rows, error } = await db.from('burrow_holders').select('wallet, eligible');
+  const [min, cursor, grants] = await Promise.all([
+    threshold(db),
+    cursorOf(db),
+    grantSet(db),
+  ]);
+
+  let query = db
+    .from('burrow_holders')
+    .select('wallet, eligible')
+    .order('wallet', { ascending: true })
+    .limit(BATCH_SIZE);
+  if (cursor) query = query.gt('wallet', cursor);
+
+  const { data: rows, error } = await query;
   if (error) {
-    console.error('[holder-sweep]', error.message);
+    console.error('[holder-sweep] holders', error.message);
     return json(200, { ok: false });
   }
 
-  // The guest list, migration 0004. A granted wallet keeps eligible no
-  // matter what the chain says, otherwise the sweep would revoke the send a
-  // burro hundred within the hour. A missing table reads as an empty list.
-  let grants = new Set();
-  try {
-    const { data: g } = await db.from('burrow_grants').select('wallet');
-    grants = new Set((g || []).map((x) => x.wallet));
-  } catch { /* before 0004 lands */ }
-
-  let flipped = 0;
-  let skipped = 0;
-  for (const r of rows || []) {
+  // An exact final page leaves the cursor at its last row. The next run sees
+  // an empty page, wraps it and lets the following run begin a fresh cycle.
+  if (!rows?.length) {
     try {
-      const balance = await balanceOf(r.wallet);
-      const eligible = balance >= min || grants.has(r.wallet);
-      await db.from('burrow_holders').update({ balance, eligible, checked_at: new Date().toISOString() }).eq('wallet', r.wallet);
-      if (eligible !== r.eligible) flipped += 1;
-    } catch (err) {
-      skipped += 1;
-      console.error('[holder-sweep]', r.wallet.slice(0, 6), err.message);
+      await saveCursor(db, '');
+    } catch (cursorError) {
+      console.error('[holder-sweep]', cursorError.message);
+      return json(200, { ok: false });
     }
-    await sleep(BREATH_MS);
+    return json(200, { ok: true, wallets: 0, flipped: 0, skipped: 0, wrapped: true });
   }
 
-  console.log(`[holder-sweep] ${rows?.length || 0} wallets, ${flipped} flipped, ${skipped} skipped, floor ${min}`);
-  return json(200, { ok: true, wallets: rows?.length || 0, flipped, skipped });
+  const outcomes = [];
+  for (let index = 0; index < rows.length; index += CONCURRENCY) {
+    const group = rows.slice(index, index + CONCURRENCY);
+    outcomes.push(...await Promise.all(
+      group.map((row) => updateOne(db, row, min, grants)),
+    ));
+  }
+
+  const nextCursor = rows.length < BATCH_SIZE ? '' : rows[rows.length - 1].wallet;
+  try {
+    await saveCursor(db, nextCursor);
+  } catch (cursorError) {
+    console.error('[holder-sweep]', cursorError.message);
+    return json(200, { ok: false });
+  }
+
+  const flipped = outcomes.filter((outcome) => outcome.flipped).length;
+  const skipped = outcomes.filter((outcome) => outcome.skipped).length;
+  console.log(
+    `[holder-sweep] ${rows.length} wallets, ${flipped} flipped, ${skipped} skipped, floor ${min}`,
+  );
+  return json(200, {
+    ok: true,
+    wallets: rows.length,
+    flipped,
+    skipped,
+    wrapped: nextCursor === '',
+  });
 };
 
 export default handler;

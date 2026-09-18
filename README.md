@@ -20,7 +20,14 @@ yarn dev
 The door renders without env. The signature needs the Supabase Web3 provider
 enabled on the shared project, and the balance check needs a keyed Solana rpc
 in `SOLANA_RPC_URL`. The threshold is a live row in `burrow_settings`, edited
-from Pulse, nothing redeploys.
+from Pulse, nothing redeploys. The current ruled opening value is 1,000,000
+whole NEONBURRO. Migration
+`20260918033701_phosphor_holder_gate_hardening.sql` applies that value and must
+pass its duplicate-user guard before the release says the new gate is live.
+
+`/tools/` is the read-only operating map. It shows system health, public wallet
+roles and the proposal trail. Observation and proposal preparation may
+automate. A person approves and signs every transaction that moves value.
 
 ## The short laws
 
