@@ -64,8 +64,22 @@ export const tokensOf = (usage = {}) => ({
   cacheWrite1h: n(usage.cache_creation?.ephemeral_1h_input_tokens),
 });
 
+// ── A DATED MODEL ID IS THE SAME MODEL ──────────────────────────────────────
+//
+// Found 2026-09-20 while costing the ask door. Anthropic ships both an undated
+// alias and a dated id for the same model, and this table is keyed on the
+// undated one. kit-ask.js on the studio and one other caller pass the dated id, so the exact
+// lookup missed, costOf returned null and every one of those calls was metered
+// at no cost. The spend was real and the table said nothing, which is the one
+// failure mode a usage meter may not have.
+//
+// So a trailing date is stripped and the base id tried once. Adding every
+// dated id to the table by hand would work until the next release and then
+// quietly stop, which is how this happened the first time.
+const baseId = (model) => String(model || '').trim().replace(/-\d{8}$/, '');
+
 export const costOf = (model, usage, { batch = false } = {}) => {
-  const p = PRICES[String(model || '').trim()];
+  const p = PRICES[String(model || '').trim()] || PRICES[baseId(model)];
   if (!p) return null;
   const t = tokensOf(usage);
   const k = batch ? BATCH : 1;
