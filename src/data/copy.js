@@ -29,7 +29,7 @@ export const COPY = {
   en: {
     door_kicker: 'phosphor. • by neonburro',
     door_title: 'a room under the range.',
-    door_line: 'hold enough NEONBURRO and the door knows you. nothing to type. nothing to remember. a dollar is a rumour up here.',
+    door_line: 'hold NEONBURRO and the door knows you. nothing to type. nothing to remember. a dollar is a rumour up here.',
     door_button: 'verify your wallet',
     door_button_back: 'sign back in, {handle}',
     door_remember: 'remember this wallet',
@@ -110,7 +110,7 @@ export const COPY = {
   ja: {
     door_kicker: 'phosphor. • by neonburro',
     door_title: '山の下の部屋。',
-    door_line: 'NEONBURROを十分に持っていれば、扉はあなたを知っている。入力なし。記憶なし。ここではドルは噂にすぎない。',
+    door_line: 'NEONBURROを持っていれば、扉はあなたを知っている。入力なし。記憶なし。ここではドルは噂にすぎない。',
     door_button: 'ウォレットを確認',
     door_button_back: 'おかえり {handle}。サインインして',
     door_remember: 'このウォレットを覚える',
@@ -190,7 +190,7 @@ export const COPY = {
   zh: {
     door_kicker: 'phosphor. • by neonburro',
     door_title: '山脉之下的一间屋子。',
-    door_line: '持有足够的 NEONBURRO，这扇门就认得你。无需输入。无需记住。在这里，美元只是个传闻。',
+    door_line: '持有 NEONBURRO，这扇门就认得你。无需输入。无需记住。在这里，美元只是个传闻。',
     door_button: '验证钱包',
     door_button_back: '欢迎回来 {handle}，再签一次',
     door_remember: '记住这个钱包',

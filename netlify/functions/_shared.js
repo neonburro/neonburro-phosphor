@@ -94,6 +94,31 @@ export const balanceOf = async (wallet) => {
 
 // Pulse will edit this row later. The fallback matches Tyler's current ruling
 // so a missing row never silently restores the retired five-million gate.
+// ── THE GATE IS A MILLION, AND A ROW CAN ONLY EVER LOOSEN IT ─────────────
+//
+// Tyler, 2026-10-02. Holding is the gate. He said first that any holder should
+// get in, then asked for a minimal floor of about fifty dollars and asked for a
+// recommendation. A million tokens is the answer and the council's own wallets
+// are the argument. At the five million the room was set to, lyra at 4,937,954,
+// volt at 4,671,807, kolache at 2,609,349 and echo at 1,065,896 are all shut
+// out of their own room, and tender clears it by 5,210 tokens, roughly four
+// cents. A bar that evicts your own council is the wrong bar.
+//
+// It is counted in TOKENS and never in dollars. A dollar gate revokes
+// membership on a price dip, so somebody who paid to get in yesterday stands
+// outside today having done nothing at all. Tokens do not behave that way.
+//
+// A million is about $8.51 at today's price and it is reachable, which a dollar
+// bar is not. token-price.js puts the largest order that clears the two percent
+// slippage ceiling at $37.75, so a fifty dollar entry would cost a newcomer more
+// than the pool can fill without moving the price against them.
+//
+// burrow_settings.min_balance still works and still needs no deploy, but it can
+// only ever LOWER this number. A row that nobody reading this repo can inspect
+// must never be able to lock holders out, which is exactly what a stale five
+// million would quietly do while this file claimed otherwise.
+export const GATE = 1_000_000;
+
 export const threshold = async (db) => {
   const { data, error } = await db
     .from('burrow_settings')
@@ -102,7 +127,8 @@ export const threshold = async (db) => {
     .maybeSingle();
   if (error) throw new Error(`threshold unavailable: ${error.message}`);
   const amount = Number(data?.value);
-  return Number.isFinite(amount) && amount > 0 ? amount : 1_000_000;
+  const asked = Number.isFinite(amount) && amount > 0 ? amount : GATE;
+  return Math.min(asked, GATE);
 };
 
 export const json = (statusCode, body) => ({
