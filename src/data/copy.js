@@ -45,6 +45,7 @@ export const COPY = {
     door_under: 'this wallet holds {balance} NEONBURRO. the door opens at {threshold}. come back when it does.',
     door_quiet: 'the door is quiet right now. try again in a minute.',
     door_signed: 'the wallet signed. checking the balance.',
+    door_stale: 'that sign in carried no wallet, so there is no balance to read. signed out. connect a wallet below.',
     door_timeout: 'the wallet never answered. try again, or sign in the wallet\'s own browser and come back to this tab.',
     door_not_found: 'no wallet answered. open this page inside your wallet app, or',
     hello_kicker: 'three steps',

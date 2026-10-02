@@ -37,6 +37,15 @@ export const check = async (patch) => {
     } catch { /* private mode */ }
     if (!res.ok || !json.ok) {
       if (json?.reason === 'no session') return { state: 'out' };
+      // A session that carries no web3 identity can NEVER pass the gate, so
+      // calling it quiet is a lie that strands the holder forever. The phone
+      // handoff signs people in by email, which produces exactly such a user,
+      // and the session survives a hard reset because it is persisted. Tyler
+      // sat on "the door is quiet right now" with a saved wallet on screen and
+      // no way out, 2026-10-02. It is its own state so the door can clear it.
+      if (json?.reason === 'identity' || json?.reason === 'identity collision') {
+        return { state: 'stale', reason: json.reason };
+      }
       return { state: 'quiet', error: json?.error || null };
     }
     return { state: json.eligible ? 'in' : 'under', holder: json.holder, threshold: json.threshold, balance: json.balance, sol: json.sol ?? null, wallet: json.wallet || null };

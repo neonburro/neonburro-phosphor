@@ -25,7 +25,7 @@ import { WALLET_LINK } from '../../data/links';
 import { t } from '../../data/copy';
 import { check, knownHandle, tokens } from '../../lib/holder';
 import { remembered, setRemembered, supabase } from '../../lib/supabase';
-import { addressOf, detect, detectAll, seen, short, signIn } from '../../lib/wallet';
+import { addressOf, detect, detectAll, seen, short, signIn, signOut } from '../../lib/wallet';
 import colors from '../../theme/colors';
 import { EASE, MEASURE, RAIL } from '../../theme/layout';
 
@@ -197,6 +197,16 @@ const Door = () => {
     nav(returnPath || (result.holder?.handle ? '/burro/' : '/hello/'), { replace: Boolean(returnPath) });
   };
 
+  // A session with no web3 identity cannot ever satisfy the gate, so the only
+  // honest thing is to end it and say so. Leaving it in place is what put a
+  // saved wallet and a permanent "the door is quiet" on the same screen.
+  const clearStale = async () => {
+    await signOut();
+    setAddr(null);
+    setLine(t('door_stale'));
+    setPhase('resting');
+  };
+
   const stopHandoff = (hide = true) => {
     handoffRun.current += 1;
     if (qrPoll.current) clearTimeout(qrPoll.current);
@@ -353,6 +363,10 @@ const Door = () => {
         setPhase('under');
         return;
       }
+      if (result.state === 'stale') {
+        await clearStale();
+        return;
+      }
       if (result.state === 'quiet') {
         setLine(result.error ? String(result.error).toLowerCase() : t('door_quiet'));
         setPhase('quiet');
@@ -403,6 +417,10 @@ const Door = () => {
       if (result.state === 'under') {
         setLine(t('door_under', { balance: tokens(result.balance) || '0', threshold: tokens(result.threshold) || 'enough' }));
         setPhase('under');
+        return;
+      }
+      if (result.state === 'stale') {
+        await clearStale();
         return;
       }
       setLine(result.error ? String(result.error).toLowerCase() : t('door_quiet'));

@@ -17,7 +17,7 @@ const HolderGate = () => {
   if (holder.state === 'loading') {
     return <VStack flex="1" justify="center"><Text fontFamily="mono" fontSize="12px" color={colors.text.muted}>checking the chain...</Text></VStack>;
   }
-  if (holder.state === 'out' || holder.state === 'under') return <Navigate to="/" replace />;
+  if (holder.state === 'out' || holder.state === 'under' || holder.state === 'stale') return <Navigate to="/" replace />;
   if (holder.state === 'quiet') {
     return (
       <VStack flex="1" justify="center" spacing={4} px={5} textAlign="center">

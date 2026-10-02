@@ -19,6 +19,7 @@ import {
   FiUser,
 } from 'react-icons/fi';
 import { useState } from 'react';
+import BubbleMark from './BubbleMark';
 import colors from '../theme/colors';
 import { RAIL, EASE } from '../theme/layout';
 import { LANGS, currentLang, setLang } from '../data/copy';
@@ -105,7 +106,7 @@ const ShellV2 = ({ children }) => {
     <Box minH="100dvh" h={locked ? '100dvh' : undefined} overflow={locked ? 'hidden' : undefined} bg={colors.surface.base} display="flex" flexDirection="column">
       <HStack as="header" justify="space-between" px={RAIL} pt={5} pb={2}>
         <HStack as={Link} to={inside ? '/burro/' : '/'} spacing={2.5} _hover={{ textDecoration: 'none' }}>
-          <Box w="12px" h="12px" borderRadius="4px 4px 1px 4px" bg={colors.accent.signal} boxShadow={`0 0 10px ${colors.accent.signalAlpha[32]}`} />
+          <BubbleMark size={13} color={colors.accent.signal} glow={colors.accent.signalAlpha[32]} />
           <Text fontFamily="heading" fontWeight="600" letterSpacing="-0.035em" color={colors.text.primary} fontSize="17px">phosphor<Box as="span" color={colors.accent.signal}>.</Box></Text>
         </HStack>
         <HStack spacing={{ base: 2, md: 3 }}>
