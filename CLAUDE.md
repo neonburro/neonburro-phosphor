@@ -44,11 +44,17 @@ items live when they exist, see docs/sigils.md.
 - **Never handle secrets.** Env var names only, never values.
 - **hue•man with the interpunct.** Lowercase copy, uppercase only on small mono
   kickers. Buttons lowercase. Periods over commas.
-- **Teal once per screen, purple only where the chain talks.** Never lime, lime
-  is the studio's. See src/theme/colors.js.
-- **Never a dollar figure in visitor facing copy.** The threshold is quoted in
-  NEONBURRO. No price talk, no return talk, no urgency, the same rule every
-  neonburro channel runs, this is legal protection and also the voice.
+- **Lime once per screen, teal only where money is stated, purple only where the
+  chain talks.** Never all three on one element. Lime is the family accent here
+  too, Tyler ruled the product keeps it. This line used to say never lime and
+  that stopped being true before it was written down. src/theme/colors.js is the
+  source, it carries the ruling, read it before reaching for a colour.
+- **No USD on a community wallet.** The threshold and a holder's balance are
+  quoted only in NEONBURRO. The transparency screen is the narrow exception.
+  It may show timestamped USD equivalents for deliberately public studio and
+  burro operating wallets, plus cleared service earnings in a separate USD
+  ledger. It always labels on chain value and off chain accounting apart. No
+  return talk, no urgency and no price promise.
 
 ## the shape
 
@@ -59,7 +65,7 @@ src/pages/Room       the room. empty first cut, epoch's desk
 src/lib/wallet.js    detect, signInWithWeb3, the statement the wallet shows
 src/lib/supabase.js  the client. remember me decides which storage
 src/lib/holder.js    useHolder, the soft gate
-src/data/copy.js     every visitor sentence in en ja es. add languages here
+src/data/copy.js     every visitor sentence in en ja zh. add languages here
 netlify/functions    holder-check (the door's brain), holder-sweep (hourly),
                      _shared (key ladder, rpc, threshold)
 supabase/migrations  burrow_settings, burrow_holders, is_burrow_eligible()

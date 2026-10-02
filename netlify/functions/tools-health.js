@@ -50,3 +50,12 @@ export const handler = async (event) => {
 };
 
 export default handler;
+
+export const config = {
+  path: '/.netlify/functions/tools-health',
+  rateLimit: {
+    windowLimit: 30,
+    windowSize: 60,
+    aggregateBy: ['ip'],
+  },
+};

@@ -12,7 +12,7 @@
 //
 // No oxford commas, no em dashes.
 
-import { useEffect, useState } from 'react';
+import { createContext, createElement, useContext, useEffect, useMemo, useState } from 'react';
 import { supabase } from './supabase';
 
 const ENDPOINT = '/.netlify/functions/holder-check';
@@ -45,15 +45,43 @@ export const check = async (patch) => {
   }
 };
 
-export const useHolder = () => {
+const HolderContext = createContext(null);
+
+export const HolderProvider = ({ children }) => {
   const [snap, setSnap] = useState({ state: 'loading' });
   useEffect(() => {
     let live = true;
     check().then((r) => { if (live) setSnap(r); });
-    return () => { live = false; };
+    const auth = supabase?.auth?.onAuthStateChange((event) => {
+      if (!live) return;
+      if (event === 'SIGNED_OUT') {
+        setSnap({ state: 'out' });
+        return;
+      }
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        setSnap({ state: 'loading' });
+        setTimeout(() => {
+          check().then((result) => { if (live) setSnap(result); });
+        }, 0);
+      }
+    });
+    return () => {
+      live = false;
+      auth?.data?.subscription?.unsubscribe();
+    };
   }, []);
-  return { ...snap, refresh: async (patch) => { const r = await check(patch); setSnap(r); return r; } };
+  const value = useMemo(() => ({
+    ...snap,
+    refresh: async (patch) => {
+      const result = await check(patch);
+      setSnap(result);
+      return result;
+    },
+  }), [snap]);
+  return createElement(HolderContext.Provider, { value }, children);
 };
+
+export const useHolder = () => useContext(HolderContext) || { state: 'loading', refresh: check };
 
 // Whole tokens, compact, for the sentence on the door.
 export const knownHandle = () => {

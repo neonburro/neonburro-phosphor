@@ -1,57 +1,71 @@
 // src/pages/Door/index.jsx
 //
-// The door. One sentence, one button, one line for the walletless. The whole
-// page is the consent moment, so it says exactly what happens and no more.
+// The door. One sentence, one button and one line for the walletless. The
+// whole page is the consent moment, so it says exactly what happens and no
+// more. An eligible returning holder goes to /burro/. A first entry goes to
+// /hello/. A phone may approve a walletless desktop through a narrow handoff.
 //
-// States, in the order a visitor meets them:
-//   resting    the sentence and the button
-//   signing    the wallet sheet is up, the button waits
-//   checking   signed, the balance is being read
-//   under      a real wallet under the line. the sentence says the two numbers
-//   in         straight to /hello/ the first time, /room/ after
-//   nowallet   no provider answered. the one link, or the plain sentence when
-//              the link is not filled in yet
-//   quiet      the function could not be reached. nobody is blamed
+// The handoff keeps two values apart. The QR contains a public nonce that the
+// phone approves. A 256-bit claim secret stays only in this desktop tab and is
+// sent with each claim poll. It never enters the QR, URL, DOM or web storage.
+// One timeout follows the next so slow requests never overlap. Closing this
+// page clears the in-memory secret and stops polling.
 //
-// The remember me tick is read by lib/supabase.js at the NEXT load, so it is
-// written before signing begins. Purple appears exactly once on this page, on
-// the wallet address chip after signing, because that is the chain talking.
+// The remember choice is written immediately before sign in. Purple appears
+// once on the wallet address chip because that is the chain talking.
 //
-// No oxford commas, no em dashes.
+// No Oxford commas, no em dashes.
 
-import { useState, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Box, Button, Checkbox, HStack, Text, VStack } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
-import colors from '../../theme/colors';
-import { RAIL, MEASURE, EASE } from '../../theme/layout';
+import QRCode from 'qrcode';
 import TokenChip from '../../components/TokenChip';
-import { signIn, detect, detectAll, addressOf, short, seen } from '../../lib/wallet';
+import { WALLET_LINK } from '../../data/links';
+import { t } from '../../data/copy';
+import { check, knownHandle, tokens } from '../../lib/holder';
+import { remembered, setRemembered, supabase } from '../../lib/supabase';
+import { addressOf, detect, detectAll, seen, short, signIn } from '../../lib/wallet';
+import colors from '../../theme/colors';
+import { EASE, MEASURE, RAIL } from '../../theme/layout';
+
 const EPOCH_FACE = '/epoch-avatar.webp';
-// ── THE DEEP LINK TARGET IS READ WHEN YOU TAP, NOT WHEN THE MODULE LOADS ────
-//
-// HERE used to be a module level const. In a single page app that is evaluated
-// once, on whichever url happened to import this module first, so a visitor who
-// landed anywhere else and then walked to the door handed the wallet a stale
-// address. The wallet dutifully opened THAT page in its browser, the door was
-// not on screen, and the whole thing looked like being signed up fresh.
-//
-// It is a function now. Every link is built from window.location.href at the
-// moment it is rendered, so the wallet always reopens the door the visitor is
-// actually standing at.
+const HANDOFF_ENDPOINT = '/.netlify/functions/handoff';
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const CLAIM_SECRET = /^[A-Za-z0-9_-]{43}$/;
+
+// This is a visual mixup check, not a credential. The contract test keeps the
+// identical derivation on the phone approval screen.
+const handoffCode = (nonce) => String(nonce || '').replaceAll('-', '').slice(-4).toUpperCase();
+
+// A signed out phone carries its public approval route through the door in the
+// current URL only. Accept one UUID query on the exact local /approve/ route.
+// External origins, credentials, fragments and extra parameters are rejected.
+const safeApproveReturn = () => {
+  if (typeof window === 'undefined') return null;
+  const raw = new URLSearchParams(window.location.search).get('return');
+  if (!raw) return null;
+  try {
+    const candidate = new URL(raw, window.location.origin);
+    const entries = [...candidate.searchParams.entries()];
+    const nonce = candidate.searchParams.get('n');
+    if (candidate.origin !== window.location.origin) return null;
+    if (candidate.pathname !== '/approve/' || candidate.hash) return null;
+    if (candidate.username || candidate.password) return null;
+    if (entries.length !== 1 || entries[0][0] !== 'n') return null;
+    if (!UUID.test(String(nonce || ''))) return null;
+    return `/approve/?n=${encodeURIComponent(nonce.toLowerCase())}`;
+  } catch {
+    return null;
+  }
+};
+
+// Deep links are built when tapped rather than when the module loads. A
+// single page app can import this screen from another route first.
 const here = () => (typeof window !== 'undefined' ? window.location.href : 'https://phosphor.neonburro.com/');
 
-// ── A PHONE IS NOT A SMALL DESKTOP ──────────────────────────────────────────
-//
-// A phone browser has no extension, so nothing injects window.solana and
-// detect() correctly finds nothing. The old code then showed the QR handoff,
-// which is a DESKTOP mechanic. Its own alt text says scan with your signed in
-// phone. Showing it to somebody holding the phone asks them to scan a code with
-// the device displaying it.
-//
-// So the door has to know which it is talking to. Coarse pointer and a narrow
-// viewport, checked at render rather than cached, because a tablet can change
-// its mind on rotate. On a phone the wallet links become the answer and the QR
-// is hidden. On a desktop nothing changes.
+// A phone browser has no extension and cannot scan its own screen. Wallet app
+// links are the phone answer. The QR remains a desktop-only mechanic.
 const onPhone = () => {
   if (typeof window === 'undefined') return false;
   return window.matchMedia('(pointer: coarse)').matches && window.innerWidth < 820;
@@ -59,49 +73,35 @@ const onPhone = () => {
 
 const PHANTOM_LINK = () => `https://phantom.app/ul/browse/${encodeURIComponent(here())}?ref=${encodeURIComponent(here())}`;
 const SOLFLARE_LINK = () => `https://solflare.com/ul/v1/browse/${encodeURIComponent(here())}?ref=${encodeURIComponent(here())}`;
-// Documented deep links only. Trust publishes link.trustwallet.com open_url
-// with coin 501 for solana and coinbase publishes go.cb-w.com dapp. Okx and
-// backpack publish nothing reliable, their in app browsers arrive through the
-// wallet standard on their own.
 const TRUST_LINK = () => `https://link.trustwallet.com/open_url?coin_id=501&url=${encodeURIComponent(here())}`;
 const COINBASE_LINK = () => `https://go.cb-w.com/dapp?cb_url=${encodeURIComponent(here())}`;
-import { supabase, remembered, setRemembered } from '../../lib/supabase';
-import { useEffect } from 'react';
-import { check, tokens, knownHandle } from '../../lib/holder';
-import QRCode from 'qrcode';
 
-// ── THE SIGNALS, 2026-08-27 ─────────────────────────────────────────────────
-// The door states the room's vitals before anyone signs, price and day move
-// from the studio's token-price function (one source of price truth for
-// every property, pull from one), holders from the hourly token_snapshots,
-// and the open spot count from the send a burro wall, which is the same
-// project this room lives in. Every stat renders only when its number
-// arrived, a dash is a lie and a spinner is a promise, the row simply grows
-// as the answers land. Tack, not dashboarding. Mobile first, it wraps.
+// The door states its public vitals before anyone signs. A value appears only
+// after it arrives. Missing data stays absent rather than becoming a fake zero.
 const useDoorSignals = () => {
   const [sig, setSig] = useState({});
   useEffect(() => {
     let dead = false;
     fetch('https://neonburro.com/.netlify/functions/token-price')
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => {
-        const tk = j?.tokens?.neonburro;
-        if (dead || !tk) return;
-        setSig((s) => ({ ...s, price: tk.usdPrice, change: tk.change24h, pool: tk.reserves?.poolUsd }));
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload) => {
+        const token = payload?.tokens?.neonburro;
+        if (dead || !token) return;
+        setSig((current) => ({ ...current, price: token.usdPrice, change: token.change24h, pool: token.reserves?.poolUsd }));
       })
       .catch(() => {});
     if (supabase) {
       supabase.from('token_snapshots').select('holders').order('taken_at', { ascending: false }).limit(1)
-        .then(({ data }) => { if (!dead && data?.[0]) setSig((s) => ({ ...s, holders: data[0].holders })); });
+        .then(({ data }) => { if (!dead && data?.[0]) setSig((current) => ({ ...current, holders: data[0].holders })); });
       supabase.from('send_a_burro_public').select('spot').eq('status', 'ramp')
-        .then(({ data }) => { if (!dead && Array.isArray(data)) setSig((s) => ({ ...s, spots: Math.max(0, 100 - data.length) })); });
+        .then(({ data }) => { if (!dead && Array.isArray(data)) setSig((current) => ({ ...current, spots: Math.max(0, 100 - data.length) })); });
     }
     return () => { dead = true; };
   }, []);
   return sig;
 };
 
-const sigMoney = (p) => (Number.isFinite(p) ? (p >= 0.01 ? `$${p.toFixed(4)}` : `$${p.toPrecision(3)}`) : null);
+const sigMoney = (price) => (Number.isFinite(price) ? (price >= 0.01 ? `$${price.toFixed(4)}` : `$${price.toPrecision(3)}`) : null);
 
 const DoorSignals = () => {
   const sig = useDoorSignals();
@@ -142,17 +142,41 @@ const DoorSignals = () => {
         '@keyframes nbSigIn': { from: { opacity: 0, transform: 'translateY(8px)' }, to: { opacity: 1, transform: 'translateY(0)' } },
         '@media (prefers-reduced-motion: reduce)': { animation: 'none' },
       }}>
-      {bits.map((b, i) => (
-        <HStack as="span" key={i} spacing={0} display="inline-flex" align="baseline">
-          {i > 0 && <Text as="span" mx={2.5} color={colors.surface.lineStrong}>·</Text>}
-          {b}
+      {bits.map((bit, index) => (
+        <HStack as="span" key={index} spacing={0} display="inline-flex" align="baseline">
+          {index > 0 && <Text as="span" mx={2.5} color={colors.surface.lineStrong}>·</Text>}
+          {bit}
         </HStack>
       ))}
     </HStack>
   );
 };
-import { WALLET_LINK } from '../../data/links';
-import { t } from '../../data/copy';
+
+// ── A WALLET THAT NEVER ANSWERS MUST NOT HOLD THE DOOR ──────────────────
+//
+// Tyler, 2026-10-02. Tapped jupiter, signed, came back to three dots that never
+// stopped. `await signIn()` had no ceiling on it, so the button sat on its
+// loading text forever, offering no way out and no reason why.
+//
+// Two separate things go wrong here and each needs its own answer. A wallet can
+// simply never settle its promise, which the timeout below ends. And a mobile
+// wallet can open phosphor inside ITS OWN browser, take the signature there and
+// leave this tab holding a promise that can never resolve, because the session
+// landed in a different browser entirely. No timeout fixes that one. The tab
+// has to look again when it returns to the front, which is what resumeRef and
+// the visibility effect in the component do.
+//
+// Ninety seconds is long enough to read a signature prompt carefully and short
+// enough that nobody sits there wondering whether the page is broken.
+const SIGN_TIMEOUT_MS = 90000;
+
+const withTimeout = (promise, ms, message) => {
+  let timer = null;
+  const ceiling = new Promise((resolve, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), ms);
+  });
+  return Promise.race([promise, ceiling]).finally(() => { if (timer) clearTimeout(timer); });
+};
 
 const kicker = { fontFamily: 'mono', fontSize: '10px', fontWeight: '500', letterSpacing: '0.2em', textTransform: 'uppercase' };
 
@@ -163,123 +187,243 @@ const Door = () => {
   const [line, setLine] = useState(null);
   const [copied, setCopied] = useState(false);
   const [qr, setQr] = useState(null);
+  const [addr, setAddr] = useState(null);
+  const handoff = useRef(null);
+  const handoffRun = useRef(0);
   const qrPoll = useRef(null);
 
-  // The phone signs for this screen. Ask the function for a nonce, draw it as
-  // a QR pointing at /approve/, and poll claim until the phone says yes. The
-  // claim answers once with a one time token that verifyOtp turns into a real
-  // session for the same holder, then the normal check walks this screen in.
-  const startHandoff = async () => {
-    try {
-      const res = await fetch('/.netlify/functions/handoff', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'start' }),
-      });
-      const j = await res.json();
-      if (!j.ok || !j.nonce) return;
-      const url = `https://phosphor.neonburro.com/approve/?n=${j.nonce}`;
-      const dataUrl = await QRCode.toDataURL(url, { margin: 1, width: 220, color: { dark: '#F4F3F1', light: '#0B0B0C00' } });
-      setQr({ img: dataUrl, nonce: j.nonce });
-      qrPoll.current && clearInterval(qrPoll.current);
-      qrPoll.current = setInterval(async () => {
-        try {
-          const r2 = await fetch('/.netlify/functions/handoff', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'claim', nonce: j.nonce }),
-          });
-          const c = await r2.json();
-          if (c.token_hash && supabase) {
-            clearInterval(qrPoll.current);
-            const { error } = await supabase.auth.verifyOtp({ type: 'email', token_hash: c.token_hash });
-            if (!error) {
-              setPhase('checking');
-              const r3 = await check();
-              if (r3.state === 'in') nav(r3.holder?.handle ? '/room/' : '/hello/');
-              else if (r3.state === 'under') { setLine(t('door_under', { balance: tokens(r3.balance) || '0', threshold: tokens(r3.threshold) || 'enough' })); setPhase('under'); }
-              else { setLine(r3.error ? String(r3.error).toLowerCase() : t('door_quiet')); setPhase('quiet'); }
-            }
-          }
-          if (c.reason === 'expired') { clearInterval(qrPoll.current); setQr(null); }
-        } catch { /* next poll */ }
-      }, 3000);
-    } catch { /* the pills remain */ }
+  const enter = (result) => {
+    const returnPath = safeApproveReturn();
+    nav(returnPath || (result.holder?.handle ? '/burro/' : '/hello/'), { replace: Boolean(returnPath) });
   };
-  useEffect(() => () => { qrPoll.current && clearInterval(qrPoll.current); }, []);
 
-  // A session that already exists is used, not re signed. The first cut asked
-  // the wallet for a fresh signature on every tap, so a person whose sign in
-  // SUCCEEDED but whose balance check stumbled was sent around the loop
-  // again, signing forever. On load: session present, run the check straight
-  // away and either walk in, say under, or say exactly what failed.
-  useEffect(() => {
-    let live = true;
-    (async () => {
-      if (!supabase) return;
+  const stopHandoff = (hide = true) => {
+    handoffRun.current += 1;
+    if (qrPoll.current) clearTimeout(qrPoll.current);
+    qrPoll.current = null;
+    handoff.current = null;
+    if (hide) setQr(null);
+  };
+
+  const finishSession = async (tokenHash) => {
+    stopHandoff();
+    if (!supabase) {
+      setLine(t('door_quiet'));
+      setPhase('quiet');
+      return;
+    }
+    const { error } = await supabase.auth.verifyOtp({ type: 'email', token_hash: tokenHash });
+    if (error) {
+      setLine(t('door_quiet'));
+      setPhase('quiet');
+      return;
+    }
+    setPhase('checking');
+    const result = await check();
+    if (result.state === 'in') {
+      enter(result);
+      return;
+    }
+    if (result.state === 'under') {
+      setLine(t('door_under', { balance: tokens(result.balance) || '0', threshold: tokens(result.threshold) || 'enough' }));
+      setPhase('under');
+      return;
+    }
+    setLine(result.error ? String(result.error).toLowerCase() : t('door_quiet'));
+    setPhase('quiet');
+  };
+
+  const pollHandoff = async (run) => {
+    const pending = handoff.current;
+    if (!pending || pending.run !== run || handoffRun.current !== run) return;
+    if (pending.expiresAt <= Date.now()) {
+      stopHandoff();
+      setLine(t('door_quiet'));
+      setPhase('quiet');
+      return;
+    }
+    try {
+      const response = await fetch(HANDOFF_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'claim', nonce: pending.nonce, claim_secret: pending.claimSecret }),
+        cache: 'no-store',
+        referrerPolicy: 'no-referrer',
+      });
+      const result = await response.json();
+      if (handoffRun.current !== run) return;
+      if (response.ok && result.token_hash) {
+        await finishSession(result.token_hash);
+        return;
+      }
+      if (response.status === 202 && result.waiting) {
+        qrPoll.current = setTimeout(() => pollHandoff(run), 3000);
+        return;
+      }
+      if (response.status >= 500 && result.reason !== 'restart') {
+        qrPoll.current = setTimeout(() => pollHandoff(run), 5000);
+        return;
+      }
+      stopHandoff();
+      setLine(t('door_quiet'));
+      setPhase('quiet');
+    } catch {
+      if (handoffRun.current === run) qrPoll.current = setTimeout(() => pollHandoff(run), 5000);
+    }
+  };
+
+  const startHandoff = async () => {
+    stopHandoff();
+    const run = handoffRun.current;
+    try {
+      const response = await fetch(HANDOFF_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'start' }),
+        cache: 'no-store',
+        referrerPolicy: 'no-referrer',
+      });
+      const result = await response.json();
+      if (handoffRun.current !== run) return;
+      const valid = response.ok && result.ok && UUID.test(String(result.nonce || '')) && CLAIM_SECRET.test(String(result.claim_secret || ''));
+      if (!valid) {
+        setLine(t('door_quiet'));
+        setPhase('quiet');
+        return;
+      }
+      const approvalUrl = new URL('/approve/', window.location.origin);
+      approvalUrl.searchParams.set('n', result.nonce);
+      const dataUrl = await QRCode.toDataURL(approvalUrl.toString(), {
+        margin: 1,
+        width: 220,
+        color: { dark: '#F4F3F1', light: '#0B0B0C00' },
+      });
+      if (handoffRun.current !== run) return;
+      const parsedExpiry = Date.parse(result.expires_at);
+      const expiresAt = Number.isFinite(parsedExpiry) ? parsedExpiry : Date.now() + 10 * 60 * 1000;
+      handoff.current = { run, nonce: result.nonce, claimSecret: result.claim_secret, expiresAt };
+      setQr({ img: dataUrl, code: handoffCode(result.nonce) });
+      qrPoll.current = setTimeout(() => pollHandoff(run), 1500);
+    } catch {
+      if (handoffRun.current !== run) return;
+      setLine(t('door_quiet'));
+      setPhase('quiet');
+    }
+  };
+
+  useEffect(() => () => {
+    handoffRun.current += 1;
+    if (qrPoll.current) clearTimeout(qrPoll.current);
+    handoff.current = null;
+  }, []);
+
+  // A live session skips a new wallet signature. Its chain balance is still
+  // checked before the route opens.
+  //
+  // This runs on mount AND every time the tab comes back to the front. The
+  // second path is the whole repair for the jupiter hang. A mobile wallet
+  // opens phosphor in its own browser and the session lands in storage rather
+  // than in the promise this tab is holding, so the only way this tab ever
+  // learns is by looking again when the visitor returns to it. Guarded three
+  // ways, because focus fires often. Nothing runs without a session, nothing
+  // runs on top of itself, and nothing runs once the door has already settled
+  // into a state the visitor is reading.
+  const mounted = useRef(true);
+  const resuming = useRef(false);
+  const resumeRef = useRef(null);
+
+  resumeRef.current = async () => {
+    if (!supabase || resuming.current || !mounted.current) return;
+    if (phase !== 'resting' && phase !== 'signing' && phase !== 'nowallet') return;
+    resuming.current = true;
+    try {
       const { data } = await supabase.auth.getSession();
-      if (!data?.session || !live) return;
+      if (!data?.session || !mounted.current) return;
+      stopHandoff();
       setAddr(addressOf(data.session.user));
       setPhase('checking');
-      const r = await check();
-      if (!live) return;
-      if (r.state === 'in') { nav(r.holder?.handle ? '/room/' : '/hello/'); return; }
-      if (r.state === 'under') {
-        setLine(t('door_under', { balance: tokens(r.balance) || '0', threshold: tokens(r.threshold) || 'enough' }));
+      const result = await check();
+      if (!mounted.current) return;
+      if (result.state === 'in') {
+        enter(result);
+        return;
+      }
+      if (result.state === 'under') {
+        setLine(t('door_under', { balance: tokens(result.balance) || '0', threshold: tokens(result.threshold) || 'enough' }));
         setPhase('under');
         return;
       }
-      if (r.state === 'quiet') {
-        setLine(r.error ? String(r.error).toLowerCase() : t('door_quiet'));
+      if (result.state === 'quiet') {
+        setLine(result.error ? String(result.error).toLowerCase() : t('door_quiet'));
         setPhase('quiet');
         return;
       }
       setPhase('resting');
-    })();
-    return () => { live = false; };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  const [addr, setAddr] = useState(null);
+    } finally {
+      resuming.current = false;
+    }
+  };
 
-  // choice is a picker entry from detectAll, absent for the auto pick and
-  // for a returning session, which never touches the wallet at all.
+  useEffect(() => {
+    mounted.current = true;
+    resumeRef.current?.();
+    const look = () => {
+      if (document.visibilityState !== 'visible') return;
+      resumeRef.current?.();
+    };
+    document.addEventListener('visibilitychange', look);
+    window.addEventListener('focus', look);
+    return () => {
+      mounted.current = false;
+      document.removeEventListener('visibilitychange', look);
+      window.removeEventListener('focus', look);
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const go = async (choice) => {
     setRemembered(remember);
-    // A living session skips the wallet entirely, the signature already
-    // happened. Only a signed out visitor is sent to the wallet sheet.
     const { data: existing } = supabase ? await supabase.auth.getSession() : { data: null };
-    if (!existing?.session) {
-      if (!choice && !detect()) { setLine(t('door_not_found')); setPhase('nowallet'); startHandoff(); return; }
+    if (!existing?.session && !choice && !detect()) {
+      setLine(t('door_not_found'));
+      setPhase('nowallet');
+      if (!onPhone()) startHandoff();
+      return;
     }
     setPhase('signing');
     try {
-      const session = existing?.session || await signIn(choice);
+      const session = existing?.session
+        || await withTimeout(signIn(choice), SIGN_TIMEOUT_MS, 'the wallet did not answer');
       setAddr(addressOf(session?.user));
       setPhase('checking');
-      const r = await check();
-      if (r.state === 'in') {
-        nav(r.holder?.handle ? '/room/' : '/hello/');
+      const result = await check();
+      if (result.state === 'in') {
+        enter(result);
         return;
       }
-      if (r.state === 'under') {
-        setLine(t('door_under', { balance: tokens(r.balance) || '0', threshold: tokens(r.threshold) || 'enough' }));
+      if (result.state === 'under') {
+        setLine(t('door_under', { balance: tokens(result.balance) || '0', threshold: tokens(result.threshold) || 'enough' }));
         setPhase('under');
         return;
       }
-      setLine(r.error ? String(r.error).toLowerCase() : t('door_quiet'));
+      setLine(result.error ? String(result.error).toLowerCase() : t('door_quiet'));
       setPhase('quiet');
-    } catch (err) {
-      if (err.message === 'no wallet') { setPhase('nowallet'); return; }
-      // The real sentence, not a shrug. The first cut showed the quiet line
-      // for every failure and made a config error look like weather.
-      setLine(err.message && err.message !== 'the wallet did not sign' ? err.message.toLowerCase() : t('door_quiet'));
+    } catch (error) {
+      if (error.message === 'no wallet') {
+        setPhase('nowallet');
+        return;
+      }
+      if (error.message === 'the wallet did not answer') {
+        setLine(t('door_timeout'));
+        setPhase('resting');
+        return;
+      }
+      setLine(error.message && error.message !== 'the wallet did not sign' ? error.message.toLowerCase() : t('door_quiet'));
       setPhase('quiet');
     }
   };
 
   return (
     <VStack flex="1" justify="center" align="stretch" px={RAIL} spacing={0} pb={24} position="relative">
-      {/* The audience. The theater of burros in lime glasses, ghosted to six
-          percent behind the door, all of them watching whoever arrives. Same
-          plate as the share card, served from the studio, pull from one. A
-          gradient keeps the reading column dark and the words in front. */}
       <Box position="absolute" inset={0} pointerEvents="none" aria-hidden="true"
         bgImage="url('/holders-in-glasses.webp')"
         bgSize="cover" bgPosition="center 30%" opacity={0.06}
@@ -289,9 +433,6 @@ const Door = () => {
       <VStack align="start" spacing={6} maxW={MEASURE} w="100%" position="relative" zIndex={1}>
         <Text {...kicker} color={colors.accent.signal}>{t('door_kicker')}</Text>
         <HStack spacing={{ base: 4, md: 5 }} align="center">
-          {/* Rest a cursor on the steward and he says his line, the same one
-              the coin page and the pump.fun bio carry. Voice two, one aside,
-              hover only, a phone tap has a door to open. */}
           <Box position="relative" role="group" flexShrink={0}>
             <Box
               as="img"
@@ -323,7 +464,6 @@ const Door = () => {
           {t('door_line')}
         </Text>
 
-        {/* The vitals, stated before anyone signs. See useDoorSignals above. */}
         <DoorSignals />
 
         {(phase === 'under' || phase === 'quiet' || phase === 'nowallet') && (
@@ -334,9 +474,6 @@ const Door = () => {
 
         {addr && phase !== 'resting' && (
           <HStack spacing={2} px={3} py={1.5} borderRadius="full" border="1px solid" borderColor={colors.accent.chainAlpha[32]} bg={colors.accent.chainAlpha[8]}>
-            {/* the one breath on the door. the chain dot swells like a slow
-                heartbeat, the same tack the studio hero disc carries, and
-                reduced motion holds it still. */}
             <Box w="5px" h="5px" borderRadius="full" bg={colors.accent.chain}
               sx={{
                 '@media (prefers-reduced-motion: no-preference)': {
@@ -349,20 +486,15 @@ const Door = () => {
         )}
 
         <VStack align="start" spacing={4} pt={2}>
-          {/* The picker, synced with the studio's send a burro gate
-              2026-08-27, Tyler's law that every wallet door in the family
-              behaves the same. A browser holding several wallets chooses,
-              a returning holder keeps the one welcome back button, the
-              session skips the sheet either way. */}
           {!knownHandle() && detectAll().length > 1 ? (
             <VStack align="start" spacing={3}>
               <Text {...kicker} color={colors.text.muted}>connect with</Text>
               <HStack spacing={3} flexWrap="wrap" rowGap={3}>
-                {detectAll().map((c) => (
-                  <Button key={c.name} size="lg" onClick={() => go(c)}
+                {detectAll().map((choice) => (
+                  <Button key={choice.name} size="lg" onClick={() => go(choice)}
                     isLoading={phase === 'signing' || phase === 'checking'}
                     loadingText={phase === 'signing' ? '...' : t('door_signed')}>
-                    {c.name}
+                    {choice.name}
                   </Button>
                 ))}
               </HStack>
@@ -372,31 +504,26 @@ const Door = () => {
               {knownHandle() ? t('door_button_back', { handle: knownHandle() }) : t('door_button')}
             </Button>
           )}
-          <Box as="button" type="button" onClick={() => { setPhase((ph) => ph); startHandoff(); }}
-            fontFamily="mono" fontSize="12px" color={colors.text.muted} textAlign="left"
-            _hover={{ color: colors.accent.signal }}>
-            {t('door_use_phone')}
-          </Box>
-          <Checkbox isChecked={remember} onChange={(e) => setRemember(e.target.checked)}
+          {!onPhone() && (
+            <Box as="button" type="button" onClick={startHandoff}
+              fontFamily="mono" fontSize="12px" color={colors.text.muted} textAlign="left"
+              _hover={{ color: colors.accent.signal }}>
+              {t('door_use_phone')}
+            </Box>
+          )}
+          <Checkbox isChecked={remember} onChange={(event) => setRemember(event.target.checked)}
             sx={{ '.chakra-checkbox__control': { borderColor: colors.surface.lineStrong, _checked: { bg: colors.accent.signal, borderColor: colors.accent.signal, color: colors.text.inverse } } }}>
             <Text fontFamily="mono" fontSize="12px" color={colors.text.muted}>{t('door_remember')}</Text>
           </Checkbox>
         </VStack>
 
         <HStack spacing={3} pt={4} borderTop="1px solid" borderColor={colors.surface.line} w="100%" flexWrap="wrap" rowGap={2}>
-          {/* On a phone this line is the instruction rather than an aside, so it
-              reads at the same weight as the buttons under it and in the primary
-              ink. On a desktop it stays the quiet footnote it always was. */}
           <Text fontFamily="mono" fontSize={onPhone() ? '13px' : '12px'}
             color={onPhone() ? colors.text.primary : colors.text.muted} w={onPhone() ? '100%' : 'auto'}>
             {phase === 'nowallet' ? t('door_not_found') : t('door_no_wallet')}
           </Text>
           {phase === 'nowallet' && (
             <>
-              {/* A phone has no extension to inject a wallet, so the page
-                  walks itself into the wallet's own browser. Universal links,
-                  phantom and solflare both reopen this exact url inside their
-                  app where window.solana exists and the button works. */}
               <Box as="a" href={PHANTOM_LINK()} fontFamily="mono" fontSize={onPhone() ? '13px' : '12px'} color={colors.accent.signal}
                 border="1px solid" borderColor={colors.accent.signalAlpha[32]} borderRadius="full"
                 px={onPhone() ? 5 : 3} py={onPhone() ? 2.5 : 1}
@@ -421,10 +548,6 @@ const Door = () => {
                 _hover={{ bg: colors.accent.signalAlpha[8] }}>
                 {t('door_open_coinbase')}
               </Box>
-              {/* Jupiter mobile has a real dapp browser and no public deep
-                  link scheme worth guessing at, so this pill hands the reader
-                  the address and tells them where to paste it. Tyler's own
-                  coins live in jupiter mobile, this pill is for him first. */}
               <Box as="button" type="button"
                 onClick={() => { try { navigator.clipboard.writeText('https://phosphor.neonburro.com'); setCopied(true); } catch { /* clipboard denied */ } }}
                 fontFamily="mono" fontSize="12px" color={copied ? colors.text.primary : colors.accent.signal}
@@ -447,10 +570,6 @@ const Door = () => {
           )}
         </HStack>
 
-        {/* Desktop only. This is the scan it with your other device handoff,
-            and its own alt text says as much, so showing it on a phone asks
-            somebody to scan a code with the screen they are holding. The wallet
-            links above are the phone's answer. */}
         {qr && !onPhone() && (
           <VStack align="start" spacing={3} pt={4} borderTop="1px solid" borderColor={colors.surface.line} w="100%">
             <Text fontFamily="mono" fontSize="12px" color={colors.text.primary}>{t('door_phone')}</Text>
@@ -458,6 +577,13 @@ const Door = () => {
             <Box p={3} bg={colors.surface.raised} border="1px solid" borderColor={colors.surface.line} borderRadius="16px">
               <Box as="img" src={qr.img} alt="scan with your signed in phone" w="180px" h="180px" display="block" />
             </Box>
+            <HStack spacing={3} aria-label={`match code ${qr.code}`}>
+              <Text fontFamily="mono" fontSize="11px" color={colors.text.muted}>match the phone</Text>
+              <Text fontFamily="mono" fontSize="14px" fontWeight="600" letterSpacing="0.18em" color={colors.text.primary}
+                border="1px solid" borderColor={colors.surface.lineStrong} borderRadius="10px 10px 3px 10px" px={3} py={1.5}>
+                {qr.code}
+              </Text>
+            </HStack>
             <Text fontFamily="mono" fontSize="10px" color={colors.text.muted}>
               {t('door_phone_waiting')}<Box as="span" sx={{ '@keyframes dots': { '0%': { opacity: 0.2 }, '50%': { opacity: 1 }, '100%': { opacity: 0.2 } }, animation: 'dots 1.6s infinite' }}> ···</Box>
             </Text>

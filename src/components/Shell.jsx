@@ -1,14 +1,15 @@
 // src/components/Shell.jsx
 //
 // The chrome. A mark at the top left, the language at the top right, the page
-// between. Once a holder is inside, one icon rail connects the wallet, service
-// hall, tools, rooms and Epoch's desk. The mark links home to the door.
+// between. Once a holder is inside, one icon rail connects the wallet, public
+// books, service hall, tools, rooms and Epoch's desk. The mark links home to
+// the door. Six icons still fit a narrow phone without labels.
 //
 // No oxford commas, no em dashes.
 
 import { Box, HStack, Text, VStack } from '@chakra-ui/react';
 import { Link, useLocation } from 'react-router-dom';
-import { FiGrid, FiPocket, FiMessageSquare, FiTool } from 'react-icons/fi';
+import { FiBarChart2, FiGrid, FiPocket, FiMessageSquare, FiTool } from 'react-icons/fi';
 import { useState } from 'react';
 import colors from '../theme/colors';
 import { RAIL, EASE } from '../theme/layout';
@@ -112,6 +113,7 @@ const MuskChip = () => {
 // them and the small screen stays clean.
 const TABS = [
   { id: 'wallet', to: '/wallet/', key: 'nav_wallet', icon: 'pocket' },
+  { id: 'transparency', to: '/transparency/', key: 'transparency', icon: 'chart' },
   { id: 'services', to: '/services/', key: 'nav_services', icon: 'services' },
   { id: 'tools', to: '/tools/', key: 'tools', icon: 'tools' },
   { id: 'rooms', to: '/room/', key: 'nav_rooms', icon: 'talk' },
@@ -121,6 +123,7 @@ const TABS = [
 const AppNav = ({ pathname, search }) => {
   const active = (tab) => {
     if (tab.id === 'wallet') return pathname.startsWith('/wallet');
+    if (tab.id === 'transparency') return pathname.startsWith('/transparency');
     if (tab.id === 'services') return pathname.startsWith('/services');
     if (tab.id === 'tools') return pathname.startsWith('/tools');
     if (tab.id === 'epoch') return pathname.startsWith('/room') && search.includes('r=the-coin');
@@ -130,6 +133,7 @@ const AppNav = ({ pathname, search }) => {
   const label = (tab) => {
     if (tab.id === 'services') return words(currentLang()).kicker;
     if (tab.id === 'tools') return 'tools';
+    if (tab.id === 'transparency') return 'public books';
     return t(tab.key);
   };
 
@@ -142,7 +146,7 @@ const AppNav = ({ pathname, search }) => {
       left="50%"
       transform="translateX(-50%)"
       zIndex={850}
-      spacing={1.5}
+      spacing={1}
       px={2}
       py={2}
       borderRadius="20px"
@@ -159,8 +163,8 @@ const AppNav = ({ pathname, search }) => {
           to={tab.to}
           aria-label={label(tab)}
           title={label(tab)}
-          w="42px"
-          h="42px"
+          w={{ base: '39px', md: '42px' }}
+          h={{ base: '39px', md: '42px' }}
           display="grid"
           placeItems="center"
           borderRadius="14px"
@@ -171,6 +175,7 @@ const AppNav = ({ pathname, search }) => {
           _hover={{ textDecoration: 'none', bg: 'rgba(255,255,255,0.06)' }}
         >
           {tab.icon === 'pocket' && <FiPocket size={18} color={active(tab) ? colors.accent.signal : colors.text.secondary} />}
+          {tab.icon === 'chart' && <FiBarChart2 size={18} color={active(tab) ? colors.accent.signal : colors.text.secondary} />}
           {tab.icon === 'services' && <FiGrid size={18} color={active(tab) ? colors.accent.signal : colors.text.secondary} />}
           {tab.icon === 'tools' && <FiTool size={18} color={active(tab) ? colors.accent.signal : colors.text.secondary} />}
           {tab.icon === 'talk' && <FiMessageSquare size={18} color={active(tab) ? colors.accent.signal : colors.text.secondary} />}
@@ -197,6 +202,7 @@ const Shell = ({ children }) => {
   const { pathname } = useLocation();
   const locked = pathname.startsWith('/room');
   const inside = pathname.startsWith('/wallet')
+    || pathname.startsWith('/transparency')
     || pathname.startsWith('/services')
     || pathname.startsWith('/tools')
     || pathname.startsWith('/room');

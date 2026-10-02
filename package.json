@@ -5,9 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "node scripts/check-holder-loop.mjs && vite build",
     "preview": "vite preview",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "check:holder-loop": "node scripts/check-holder-loop.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",

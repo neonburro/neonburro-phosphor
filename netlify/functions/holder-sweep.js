@@ -43,10 +43,7 @@ const saveCursor = async (db, value) => {
 
 const grantSet = async (db) => {
   const { data, error } = await db.from('burrow_grants').select('wallet');
-  if (error) {
-    console.error('[holder-sweep] grants', error.message);
-    return new Set();
-  }
+  if (error) throw new Error(`grants unavailable: ${error.message}`);
   return new Set((data || []).map((row) => row.wallet));
 };
 
@@ -70,11 +67,19 @@ export const handler = async () => {
   const db = adminClient();
   if (!db) return json(200, { ok: false, error: 'no database' });
 
-  const [min, cursor, grants] = await Promise.all([
-    threshold(db),
-    cursorOf(db),
-    grantSet(db),
-  ]);
+  let min;
+  let cursor;
+  let grants;
+  try {
+    [min, cursor, grants] = await Promise.all([
+      threshold(db),
+      cursorOf(db),
+      grantSet(db),
+    ]);
+  } catch (dependencyError) {
+    console.error('[holder-sweep]', dependencyError.message);
+    return json(200, { ok: false, error: 'dependency unavailable' });
+  }
 
   let query = db
     .from('burrow_holders')

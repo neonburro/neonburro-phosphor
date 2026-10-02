@@ -11,8 +11,9 @@
 // verify again. Tick the box and it moves to localStorage and the next visit
 // re verifies the balance on its own and opens the room or the door.
 //
-// The choice is read once at module load from the same key the door writes,
-// so the client is built right the first time rather than swapped later.
+// The storage adapter reads the choice on every operation. The door changes
+// the preference immediately before Web3 sign in, so the session written by
+// that sign in lands in the newly selected store on the same page load.
 //
 // ── DEGRADES TO NOTHING ─────────────────────────────────────────────────────
 // No url or no key and `supabase` is null. Every consumer checks `ready` and
@@ -36,14 +37,31 @@ export const setRemembered = (on) => {
   try { if (on) localStorage.setItem(REMEMBER_KEY, '1'); else localStorage.removeItem(REMEMBER_KEY); } catch { /* private mode */ }
 };
 
-const storage = () => {
-  try { return remembered() ? window.localStorage : window.sessionStorage; } catch { return undefined; }
+const storage = {
+  getItem: (item) => {
+    try { return localStorage.getItem(item) || sessionStorage.getItem(item); } catch { return null; }
+  },
+  setItem: (item, value) => {
+    try {
+      const keep = remembered();
+      const target = keep ? localStorage : sessionStorage;
+      const spare = keep ? sessionStorage : localStorage;
+      target.setItem(item, value);
+      spare.removeItem(item);
+    } catch { /* private mode */ }
+  },
+  removeItem: (item) => {
+    try {
+      localStorage.removeItem(item);
+      sessionStorage.removeItem(item);
+    } catch { /* private mode */ }
+  },
 };
 
 export const ready = Boolean(url && key);
 
 export const supabase = ready
-  ? createClient(url, key, { auth: { storage: storage(), persistSession: true, autoRefreshToken: true, detectSessionInUrl: false } })
+  ? createClient(url, key, { auth: { storage, persistSession: true, autoRefreshToken: true, detectSessionInUrl: false } })
   : null;
 
 export default supabase;

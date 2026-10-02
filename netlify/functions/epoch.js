@@ -226,3 +226,12 @@ export const handler = async (event) => {
 };
 
 export default handler;
+
+export const config = {
+  path: '/.netlify/functions/epoch',
+  rateLimit: {
+    windowLimit: 20,
+    windowSize: 60,
+    aggregateBy: ['ip'],
+  },
+};

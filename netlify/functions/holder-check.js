@@ -11,29 +11,18 @@
 //
 // No oxford commas, no em dashes.
 
-import { adminClient, balanceOf, threshold, json, corsHeaders, rpc } from './_shared.js';
+import {
+  adminClient,
+  balanceOf,
+  threshold,
+  json,
+  corsHeaders,
+  rpc,
+  verifiedWalletOf,
+} from './_shared.js';
 
 const HANDLE = /^[a-z]{3,6}-\d{2}$/;
 const LANGS = new Set(['en', 'ja', 'zh', 'es']);
-const SOLANA_ADDRESS = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
-
-// Supabase verifies the signed Web3 message before it places the wallet in an
-// identity. user_metadata is editable by the user and never appears here.
-const verifiedAddressOf = (user) => {
-  const identities = Array.isArray(user?.identities) ? user.identities : [];
-  for (const identity of identities) {
-    const provider = String(identity?.provider || '').toLowerCase();
-    if (provider && provider !== 'web3' && provider !== 'solana') continue;
-    const data = identity?.identity_data || {};
-    const candidates = [identity?.provider_id, data.address, data.sub];
-    const address = candidates
-      .map((candidate) => String(candidate || '').trim())
-      .find((candidate) => SOLANA_ADDRESS.test(candidate));
-    if (address) return address;
-  }
-  return null;
-};
-
 const grantedFor = async (db, wallet) => {
   const { data, error } = await db
     .from('burrow_grants')
@@ -41,8 +30,7 @@ const grantedFor = async (db, wallet) => {
     .eq('wallet', wallet)
     .maybeSingle();
   if (error) {
-    console.error('[holder-check] grant', error.message);
-    return false;
+    throw new Error(`grant unavailable: ${error.message}`);
   }
   return Boolean(data);
 };
@@ -122,7 +110,7 @@ export const handler = async (event) => {
   const user = userData?.user;
   if (userError || !user) return json(200, { ok: false, reason: 'no session' });
 
-  const wallet = verifiedAddressOf(user);
+  const wallet = verifiedWalletOf(user);
   if (!wallet) {
     console.error('[holder-check] no verified Web3 identity', user.id);
     return json(200, { ok: false, reason: 'identity' });
@@ -135,7 +123,13 @@ export const handler = async (event) => {
     return json(200, { ok: false, reason: 'identity collision' });
   }
 
-  const granted = await grantedFor(db, wallet);
+  let granted = false;
+  try {
+    granted = await grantedFor(db, wallet);
+  } catch (error) {
+    console.error('[holder-check]', error.message);
+    return json(200, { ok: false, reason: 'quiet' });
+  }
   let balance = Number(ownership.existing?.balance) || 0;
   let sol = null;
   let chainRead = false;
@@ -160,7 +154,13 @@ export const handler = async (event) => {
     }
   }
 
-  const min = await threshold(db);
+  let min;
+  try {
+    min = await threshold(db);
+  } catch (error) {
+    console.error('[holder-check]', error.message);
+    return json(200, { ok: false, reason: 'quiet' });
+  }
   const eligible = (chainRead && balance >= min) || granted;
   const now = new Date().toISOString();
 
@@ -223,3 +223,12 @@ export const handler = async (event) => {
 };
 
 export default handler;
+
+export const config = {
+  path: '/.netlify/functions/holder-check',
+  rateLimit: {
+    windowLimit: 60,
+    windowSize: 60,
+    aggregateBy: ['ip'],
+  },
+};

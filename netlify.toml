@@ -1,5 +1,7 @@
 # netlify.toml
-# Phosphor build, functions, one SPA catch all and the bounded holder sweep.
+# Phosphor build, functions, one SPA catch all, the bounded holder sweep and
+# the two read only transparency clocks. Observation and accounting may run on
+# a schedule. Nothing here signs or submits a transaction.
 
 [build]
   command = "yarn build"
@@ -34,6 +36,16 @@
 # The visit-time holder check remains the immediate path.
 [functions."holder-sweep"]
   schedule = "*/5 * * * *"
+
+# Three readings an hour give the public wallet book a smooth seven day line
+# without pretending an observation is market activity.
+[functions."wallet-observer"]
+  schedule = "7,27,47 * * * *"
+
+# Reconciled service shares accrue once an hour in integer microdollars. The
+# close only writes ledger rows. A payout remains a human signed proposal.
+[functions."earnings-accrual"]
+  schedule = "11 * * * *"
 
 [[headers]]
   for = "/*"

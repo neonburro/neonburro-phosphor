@@ -318,11 +318,14 @@ const Room = () => {
           </VStack>
           <HStack px={5} py={3} borderTop="1px solid" borderColor={colors.surface.line} justify="space-between">
             <HStack spacing={4}>
+              <Box as="button" type="button" onClick={() => nav('/burro/')} fontFamily={MONO} fontSize="11px" color={colors.accent.signal}>
+                my burro →
+              </Box>
               <Box as="button" type="button" onClick={() => nav('/wallet/')} fontFamily={MONO} fontSize="11px" color={colors.accent.signal}>
                 {t('nav_wallet')} →
               </Box>
-              <Box as="button" type="button" onClick={() => nav('/ledger/')} fontFamily={MONO} fontSize="11px" color={colors.text.muted} _hover={{ color: colors.text.primary }}>
-                {t('room_ledger')} →
+              <Box as="button" type="button" onClick={() => nav('/services/')} fontFamily={MONO} fontSize="11px" color={colors.text.muted} _hover={{ color: colors.text.primary }}>
+                services →
               </Box>
             </HStack>
             <Box as="button" type="button" onClick={leave} fontFamily={MONO} fontSize="11px" color={colors.text.muted} _hover={{ color: colors.text.primary }}>

@@ -1,9 +1,10 @@
 // src/pages/Wallet/index.jsx
 // SENTINEL: NB_WALLET_TAB_V2
 //
-// The wallet tab shows only the connected wallet's own chain facts. NEONBURRO,
-// SOL and recent token movement stay in their native units. No dollar figure
-// appears in phosphor. The public studio chart owns market price context.
+// The wallet tab shows only the connected wallet's NEONBURRO balance and the
+// public token tape. A community wallet's SOL, stablecoins and USD context do
+// not appear here. The transparency page owns deliberately public studio and
+// burro operating wallets, never the connected holder's other assets.
 //
 // The buy desk is Jupiter's noncustodial plugin. It loads only after a person
 // presses the real button, the wallet states the transaction and the wallet
@@ -12,7 +13,7 @@
 // No oxford commas, no em dashes. hue•man with the interpunct.
 
 import { useEffect, useState } from 'react';
-import { Box, Grid, HStack, Text, VStack } from '@chakra-ui/react';
+import { Box, HStack, Text, VStack } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
 import colors from '../../theme/colors';
 import { RAIL } from '../../theme/layout';
@@ -142,22 +143,13 @@ const Wallet = () => {
         </HStack>
       </VStack>
 
-      <Grid templateColumns={{ base: '1fr 1fr' }} gap={{ base: 4, md: 6 }}>
-        <VStack align="start" spacing={1} p={4} borderRadius="16px" bg={colors.surface.raised} border="1px solid" borderColor={colors.surface.line}>
-          <Text {...kicker} color={colors.text.muted}>{t('wallet_holding')}</Text>
-          <Text fontFamily={MONO} fontSize={{ base: '18px', md: '22px' }} fontWeight="600" color={colors.accent.money} sx={{ fontVariantNumeric: 'tabular-nums' }}>
-            {whole(holder.balance)}
-          </Text>
-          <Text fontFamily={MONO} fontSize="10px" color={colors.text.muted}>NEONBURRO</Text>
-        </VStack>
-        <VStack align="start" spacing={1} p={4} borderRadius="16px" bg={colors.surface.raised} border="1px solid" borderColor={colors.surface.line}>
-          <Text {...kicker} color={colors.text.muted}>{t('wallet_sol')}</Text>
-          <Text fontFamily={MONO} fontSize={{ base: '18px', md: '22px' }} fontWeight="600" color={colors.accent.money} sx={{ fontVariantNumeric: 'tabular-nums' }}>
-            {holder.sol == null ? '...' : holder.sol.toFixed(3)}
-          </Text>
-          <Text fontFamily={MONO} fontSize="10px" color={colors.text.muted}>SOL</Text>
-        </VStack>
-      </Grid>
+      <VStack align="start" spacing={1} p={{ base: 4, md: 5 }} borderRadius="16px" bg={colors.surface.raised} border="1px solid" borderColor={colors.surface.line}>
+        <Text {...kicker} color={colors.text.muted}>{t('wallet_holding')}</Text>
+        <Text fontFamily={MONO} fontSize={{ base: '22px', md: '28px' }} fontWeight="600" color={colors.accent.money} sx={{ fontVariantNumeric: 'tabular-nums' }}>
+          {whole(holder.balance)}
+        </Text>
+        <Text fontFamily={MONO} fontSize="10px" color={colors.text.muted}>NEONBURRO · connected wallet only</Text>
+      </VStack>
 
       <Box p={5} borderRadius="16px" border="1px solid" borderColor={desk === 'open' ? colors.surface.line : colors.accent.signalAlpha[32]} bg={desk === 'open' ? colors.surface.raised : colors.accent.signalAlpha[8]}>
         <VStack align="stretch" spacing={3}>

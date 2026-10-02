@@ -22,6 +22,24 @@ export const corsHeaders = {
 
 export const MINT = 'EdBEwPyso39z2ow59frpuLUVz5axm61dnqAeAuxYpump';
 
+const SOLANA_ADDRESS = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+
+// Only a Supabase-verified Web3 identity may become a holder wallet. Editable
+// user metadata is deliberately absent from this helper.
+export const verifiedWalletOf = (user) => {
+  const identities = Array.isArray(user?.identities) ? user.identities : [];
+  for (const identity of identities) {
+    const provider = String(identity?.provider || '').toLowerCase();
+    if (provider !== 'web3' && provider !== 'solana') continue;
+    const data = identity?.identity_data || {};
+    const address = [identity?.provider_id, data.address, data.sub]
+      .map((candidate) => String(candidate || '').trim())
+      .find((candidate) => SOLANA_ADDRESS.test(candidate));
+    if (address) return address;
+  }
+  return null;
+};
+
 export const supabaseUrl = () => process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || null;
 
 export const serverKey = () => {
@@ -82,7 +100,7 @@ export const threshold = async (db) => {
     .select('value')
     .eq('key', 'min_balance')
     .maybeSingle();
-  if (error) console.error('[burrow] threshold', error.message);
+  if (error) throw new Error(`threshold unavailable: ${error.message}`);
   const amount = Number(data?.value);
   return Number.isFinite(amount) && amount > 0 ? amount : 1_000_000;
 };
