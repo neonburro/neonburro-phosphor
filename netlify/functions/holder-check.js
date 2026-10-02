@@ -19,6 +19,7 @@ import {
   corsHeaders,
   rpc,
   verifiedWalletOf,
+  walletShapeOf,
 } from './_shared.js';
 
 const HANDLE = /^[a-z]{3,6}-\d{2}$/;
@@ -112,8 +113,11 @@ export const handler = async (event) => {
 
   const wallet = verifiedWalletOf(user);
   if (!wallet) {
-    console.error('[holder-check] no verified Web3 identity', user.id);
-    return json(200, { ok: false, reason: 'identity' });
+    // The shape rides back with the refusal so the door can say WHICH providers
+    // the session actually carried. Names and a count, never an address.
+    const shape = walletShapeOf(user);
+    console.error('[holder-check] no verified Web3 identity', user.id, shape.providers);
+    return json(200, { ok: false, reason: 'identity', detail: shape });
   }
 
   const ownership = await ownershipFor(db, wallet, user.id);

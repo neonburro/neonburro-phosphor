@@ -44,7 +44,7 @@ export const check = async (patch) => {
       // sat on "the door is quiet right now" with a saved wallet on screen and
       // no way out, 2026-10-02. It is its own state so the door can clear it.
       if (json?.reason === 'identity' || json?.reason === 'identity collision') {
-        return { state: 'stale', reason: json.reason };
+        return { state: 'stale', reason: json.reason, detail: json.detail || null };
       }
       return { state: 'quiet', error: json?.error || null };
     }

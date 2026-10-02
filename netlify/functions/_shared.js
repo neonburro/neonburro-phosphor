@@ -24,20 +24,46 @@ export const MINT = 'EdBEwPyso39z2ow59frpuLUVz5axm61dnqAeAuxYpump';
 
 const SOLANA_ADDRESS = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 
-// Only a Supabase-verified Web3 identity may become a holder wallet. Editable
-// user metadata is deliberately absent from this helper.
+// ── IDENTITIES ONLY, BUT NOT BY PROVIDER NAME ─────────────────────────
+//
+// Only a Supabase verified identity may become a holder wallet. Editable user
+// metadata is deliberately absent from this helper and must stay absent.
+// src/lib/wallet.js addressOf reads user_metadata.custom_claims.address first
+// and that is correct THERE, because the browser is only drawing a chip. It is
+// never correct here. user_metadata is writable by the account that owns it, so
+// a holder who set their own address would inherit any wallet's balance and any
+// wallet's access. That is the whole reason this helper exists.
+//
+// What changed, 2026-10-02. The provider name was pinned to web3 or solana and
+// Tyler could not get in with a real jupiter signature, looping back to the
+// door every time. Pinning the NAME was the mistake. The security property
+// comes from reading `identities` at all, because that array is server owned,
+// and not from recognising what supabase decided to call the provider this
+// month. So every identity is scanned now and the first one carrying a valid
+// Solana address wins. Strictly no weaker than before and no longer dependent
+// on a string we do not control.
+//
+// walletShapeOf is the companion. When no address is found it reports WHICH
+// providers were present so the door can say something true instead of a guess.
+// It returns provider names and counts only, never an address.
 export const verifiedWalletOf = (user) => {
   const identities = Array.isArray(user?.identities) ? user.identities : [];
   for (const identity of identities) {
-    const provider = String(identity?.provider || '').toLowerCase();
-    if (provider !== 'web3' && provider !== 'solana') continue;
     const data = identity?.identity_data || {};
-    const address = [identity?.provider_id, data.address, data.sub]
+    const address = [identity?.provider_id, data.address, data.sub, data.wallet, data.public_key]
       .map((candidate) => String(candidate || '').trim())
       .find((candidate) => SOLANA_ADDRESS.test(candidate));
     if (address) return address;
   }
   return null;
+};
+
+export const walletShapeOf = (user) => {
+  const identities = Array.isArray(user?.identities) ? user.identities : [];
+  return {
+    identities: identities.length,
+    providers: identities.map((identity) => String(identity?.provider || 'unknown')).join(',') || 'none',
+  };
 };
 
 export const supabaseUrl = () => process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || null;

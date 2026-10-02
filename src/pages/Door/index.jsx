@@ -200,10 +200,13 @@ const Door = () => {
   // A session with no web3 identity cannot ever satisfy the gate, so the only
   // honest thing is to end it and say so. Leaving it in place is what put a
   // saved wallet and a permanent "the door is quiet" on the same screen.
-  const clearStale = async () => {
+  const clearStale = async (detail) => {
     await signOut();
     setAddr(null);
-    setLine(t('door_stale'));
+    // Naming the providers the session actually carried turns a dead end into
+    // something a person can report. It is provider names only.
+    const seen = detail?.providers && detail.providers !== 'none' ? ` seen: ${detail.providers}.` : '';
+    setLine(`${t('door_stale')}${seen}`);
     setPhase('resting');
   };
 
@@ -364,7 +367,7 @@ const Door = () => {
         return;
       }
       if (result.state === 'stale') {
-        await clearStale();
+        await clearStale(result.detail);
         return;
       }
       if (result.state === 'quiet') {
@@ -420,7 +423,7 @@ const Door = () => {
         return;
       }
       if (result.state === 'stale') {
-        await clearStale();
+        await clearStale(result.detail);
         return;
       }
       setLine(result.error ? String(result.error).toLowerCase() : t('door_quiet'));
