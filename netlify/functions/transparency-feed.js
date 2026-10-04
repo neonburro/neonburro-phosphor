@@ -2,7 +2,7 @@
 //
 // The holder checked door between the transparency page and its two records.
 // Live wallet balances come from the public chain reader. Seven day history and
-// service earnings come from the shared Supabase project when the reviewed
+// service accounting comes from the shared Supabase project when the reviewed
 // migration is present. A missing migration leaves a clearly labelled fitting
 // state while current chain balances remain useful.
 //
@@ -15,6 +15,7 @@
 
 import { adminClient, corsHeaders, json } from './_shared.js';
 import { publicWallet, readOperatingWallets } from './_transparency.js';
+import { OPERATING_REGISTRY_VERSION } from '../../src/data/tools.js';
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -87,7 +88,7 @@ export const handler = async (event) => {
       .select('wallet,wallet_role_slug,wallet_label,observed_at,slot,sol_balance,neonburro_balance,usdc_balance,sol_price_usd,neonburro_price_usd,total_usd,price_source'),
     db
       .from('burro_agent_earnings_public')
-      .select('burro_slug,share_bps,accrual_hours,active,public_note,confirmed_revenue_usd_micros,allocated_usd_micros,accrued_usd_micros,proposed_usd_micros,settled_usd_micros,available_usd_micros,last_reconciled_at,last_accrued_at,last_payout_at,proof_contract_version')
+      .select('burro_slug,active,public_note,confirmed_revenue_usd_micros,allocated_usd_micros,proposed_usd_micros,settled_usd_micros,last_reconciled_at,last_payout_at,proof_contract_version')
       .order('burro_slug', { ascending: true }),
   ]);
 
@@ -113,10 +114,11 @@ export const handler = async (event) => {
     historyReady,
     accountingReady,
     live: Boolean(live),
+    registryVersion: live?.registryVersion || OPERATING_REGISTRY_VERSION,
     notes: {
       chain: live ? null : 'the live node did not answer, the last stored observation is shown',
       history: historyReady ? null : 'wallet history waits on the reviewed transparency migration',
-      accounting: accountingReady ? null : 'service earnings wait on the reviewed transparency migration',
+      accounting: accountingReady ? null : 'service accounting waits on a receipt-v2 record',
     },
   });
 };

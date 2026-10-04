@@ -4,7 +4,9 @@
 // The holder proof surface. Community wallet privacy stays in Wallet while
 // this page shows only addresses the studio deliberately named as operating
 // wallets. Chain balances and timestamped USD equivalents are one book.
-// Reconciled service earnings are a separate off chain book.
+// Receipt-v2 service accounting is a separate off chain book. It has four
+// states: verified receipt, allocated, proposed and settled. No hourly earning
+// or automatic ownership claim is inferred from those records.
 //
 // The seven day graph is drawn in this file with a small SVG instead of adding
 // a chart dependency to the mobile shell. Missing history remains visible as a
@@ -228,8 +230,8 @@ const WalletCard = ({ wallet }) => (
   </VStack>
 );
 
-const EarningCard = ({ agent, earning, accountingReady }) => {
-  const active = Boolean(earning?.active);
+const AccountingCard = ({ agent, accounting, accountingReady }) => {
+  const active = Boolean(accounting?.active);
   const money = (value) => (accountingReady ? microUsd(value) : 'not recorded');
   return (
     <HStack align="stretch" spacing={0} minH="150px" border="1px solid" borderColor={colors.surface.line} borderRadius="18px" bg={colors.surface.raised} overflow="hidden">
@@ -243,27 +245,27 @@ const EarningCard = ({ agent, earning, accountingReady }) => {
             <Text fontFamily={MONO} fontSize="9px" color={colors.text.muted}>{agent.job}</Text>
           </Box>
           <VStack align="end" spacing={0}>
-            <Text {...kicker} fontSize="8px" color={active ? colors.accent.signal : colors.text.muted}>{active ? 'rule live' : 'rule pending'}</Text>
-            {active && <Text fontFamily={MONO} fontSize="9px" color={colors.text.muted}>{(number(earning.share_bps) / 100).toFixed(2)}% over {earning.accrual_hours}h</Text>}
+            <Text {...kicker} fontSize="8px" color={active ? colors.accent.signal : colors.text.muted}>{active ? 'record active' : 'record waiting'}</Text>
+            {active && <Text fontFamily={MONO} fontSize="9px" color={colors.text.muted}>receipt-v2</Text>}
           </VStack>
         </HStack>
 
         <Grid templateColumns="repeat(2, minmax(0, 1fr))" gap={2}>
           <Box>
-            <Text {...kicker} fontSize="8px" color={colors.text.muted}>confirmed work</Text>
-            <Text fontFamily={MONO} fontSize="12px" color={colors.text.secondary}>{money(earning?.confirmed_revenue_usd_micros)}</Text>
+            <Text {...kicker} fontSize="8px" color={colors.text.muted}>verified receipt</Text>
+            <Text fontFamily={MONO} fontSize="12px" color={colors.text.secondary}>{money(accounting?.confirmed_revenue_usd_micros)}</Text>
           </Box>
           <Box>
-            <Text {...kicker} fontSize="8px" color={colors.text.muted}>accrued</Text>
-            <Text fontFamily={MONO} fontSize="12px" color={colors.accent.money}>{money(earning?.accrued_usd_micros)}</Text>
+            <Text {...kicker} fontSize="8px" color={colors.text.muted}>allocated</Text>
+            <Text fontFamily={MONO} fontSize="12px" color={colors.accent.money}>{money(accounting?.allocated_usd_micros)}</Text>
           </Box>
           <Box>
             <Text {...kicker} fontSize="8px" color={colors.text.muted}>proposed</Text>
-            <Text fontFamily={MONO} fontSize="11px" color={colors.text.secondary}>{money(earning?.proposed_usd_micros)}</Text>
+            <Text fontFamily={MONO} fontSize="11px" color={colors.text.secondary}>{money(accounting?.proposed_usd_micros)}</Text>
           </Box>
           <Box>
             <Text {...kicker} fontSize="8px" color={colors.text.muted}>settled</Text>
-            <Text fontFamily={MONO} fontSize="11px" color={colors.text.primary}>{money(earning?.settled_usd_micros)}</Text>
+            <Text fontFamily={MONO} fontSize="11px" color={colors.text.primary}>{money(accounting?.settled_usd_micros)}</Text>
           </Box>
         </Grid>
       </VStack>
@@ -318,8 +320,8 @@ const Transparency = () => {
     sol: 0, neonburro: 0, usdc: 0, usd: 0, priced: true,
   }), [data]);
 
-  const earningsByAgent = useMemo(() => Object.fromEntries((data?.earnings || []).map((row) => [row.burro_slug, row])), [data]);
-  const earned = (data?.earnings || []).reduce((sum, row) => sum + number(row.accrued_usd_micros), 0);
+  const accountingByAgent = useMemo(() => Object.fromEntries((data?.earnings || []).map((row) => [row.burro_slug, row])), [data]);
+  const allocated = (data?.earnings || []).reduce((sum, row) => sum + number(row.allocated_usd_micros), 0);
 
   if (holder.state !== 'in') {
     return <VStack flex="1" justify="center"><Text fontFamily={MONO} fontSize="12px" color={colors.text.muted}>...</Text></VStack>;
@@ -335,10 +337,10 @@ const Transparency = () => {
               <Text {...kicker} color={colors.accent.signal}>the public books</Text>
             </HStack>
             <Text fontFamily="heading" fontWeight="600" fontSize={{ base: '32px', md: '48px' }} lineHeight="1.02" letterSpacing="-0.04em" color={colors.text.primary}>
-              what the wallets hold. what the work earned.
+              what the wallets hold. what the work records.
             </Text>
             <Text fontFamily={MONO} fontSize={{ base: '11px', md: '12px' }} lineHeight="1.75" color={colors.text.secondary}>
-              studio wallets are public chain facts. service earnings are a reconciled USD ledger. one is not disguised as the other.
+              studio wallets are public chain facts. receipt-v2 service accounting is a separate USD record. one is not disguised as the other.
             </Text>
           </VStack>
           <Box as="button" type="button" onClick={load} disabled={loading} aria-label="refresh transparency" w="42px" h="42px" flexShrink={0} display="grid" placeItems="center" borderRadius="14px" border="1px solid" borderColor={colors.surface.lineStrong} color={colors.text.secondary} _hover={{ color: colors.accent.signal, borderColor: colors.accent.signalAlpha[32] }}>
@@ -360,7 +362,7 @@ const Transparency = () => {
               <Metric label="wallet value" value={totals.priced ? usd(totals.usd) : 'not priced'} note="timestamped estimate across named wallets" icon={FiActivity} />
               <Metric label="SOL held" value={compact(totals.sol, 3)} note="native balance on chain" icon={FiLayers} chain />
               <Metric label="NEONBURRO held" value={compact(totals.neonburro, 1)} note="named operating wallets only" icon={FiDatabase} chain />
-              <Metric label="service share" value={data?.accountingReady ? microUsd(earned) : 'not recorded'} note="off chain accrued USD ledger" icon={FiCheckCircle} />
+              <Metric label="operating allocation" value={data?.accountingReady ? microUsd(allocated) : 'not recorded'} note="internal record, not paid" icon={FiCheckCircle} />
             </Grid>
 
             <VStack align="stretch" spacing={4}>
@@ -386,6 +388,7 @@ const Transparency = () => {
                 <Box>
                   <Text {...kicker} color={colors.accent.chain}>on chain</Text>
                   <Text fontFamily="heading" fontWeight="600" fontSize="22px" color={colors.text.primary} mt={1}>named operating wallets</Text>
+                  <Text fontFamily={MONO} fontSize="9px" color={colors.text.muted} mt={1}>registry {data?.registryVersion || 'not reported'}</Text>
                 </Box>
                 <Text fontFamily={MONO} fontSize="10px" color={colors.text.muted}>{age(data?.observedAt)}</Text>
               </HStack>
@@ -398,9 +401,9 @@ const Transparency = () => {
             <VStack align="stretch" spacing={4}>
               <Box maxW="760px">
                 <Text {...kicker} color={colors.accent.money}>USD ledger</Text>
-                <Text fontFamily="heading" fontWeight="600" fontSize="22px" color={colors.text.primary} mt={1}>what each burro has earned</Text>
+                <Text fontFamily="heading" fontWeight="600" fontSize="22px" color={colors.text.primary} mt={1}>four service accounting states</Text>
                 <Text fontFamily={MONO} fontSize="11px" lineHeight="1.7" color={colors.text.secondary} mt={2}>
-                  only confirmed service revenue enters. the ruled share accrues by the hour. proposed is not paid. settled means an external signature was confirmed.
+                  verified receipt is payment truth. allocated is an internal record. proposed awaits human approval. settled means an external signature was confirmed.
                 </Text>
               </Box>
               {!data?.accountingReady && (
@@ -409,7 +412,7 @@ const Transparency = () => {
                 </Box>
               )}
               <Grid templateColumns={{ base: '1fr', lg: 'repeat(2, minmax(0, 1fr))' }} gap={3}>
-                {AGENTS.map((agent) => <EarningCard key={agent.slug} agent={agent} earning={earningsByAgent[agent.slug]} accountingReady={Boolean(data?.accountingReady)} />)}
+                {AGENTS.map((agent) => <AccountingCard key={agent.slug} agent={agent} accounting={accountingByAgent[agent.slug]} accountingReady={Boolean(data?.accountingReady)} />)}
               </Grid>
             </VStack>
 
@@ -418,13 +421,12 @@ const Transparency = () => {
                 <Icon as={FiClock} boxSize="15px" color={colors.accent.signal} />
                 <Text {...kicker} color={colors.accent.signal}>the close</Text>
               </HStack>
-              <Grid templateColumns={{ base: '1fr', md: 'repeat(5, minmax(0, 1fr))' }} gap={2}>
+              <Grid templateColumns={{ base: '1fr', md: 'repeat(4, minmax(0, 1fr))' }} gap={2}>
                 {[
-                  ['1', 'service settles'],
-                  ['2', 'share locks'],
-                  ['3', 'hours accrue'],
-                  ['4', 'payout proposed'],
-                  ['5', 'hue•man signs'],
+                  ['1', 'receipt verified'],
+                  ['2', 'allocation recorded'],
+                  ['3', 'settlement proposed'],
+                  ['4', 'settlement confirmed'],
                 ].map(([step, label]) => (
                   <HStack key={step} p={3} borderRadius="12px" bg={colors.surface.sunken} spacing={2.5}>
                     <Box w="22px" h="22px" borderRadius="8px" display="grid" placeItems="center" bg={colors.accent.signalAlpha[16]} color={colors.accent.signal} fontFamily={MONO} fontSize="10px" flexShrink={0}>{step}</Box>

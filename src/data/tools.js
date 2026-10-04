@@ -1,9 +1,10 @@
 // src/data/tools.js
 // SENTINEL: NB_PHOSPHOR_TOOLS_V1
 //
-// The holder-visible operating map. These rows explain what each system and
-// public studio wallet may do. They contain public addresses and plain rules,
-// never keys, environment values or signing material.
+// The holder-visible operating map. This versioned registry is the read-only
+// source for the transparency feed and its interface. These rows explain what
+// each system and public studio wallet may do. They contain public addresses
+// and plain rules, never keys, environment values or signing material.
 //
 // Tool access is one of observe, prepare or human sign. No Phosphor worker has
 // a signing role. Wallet rows name their allowed work so a later transaction
@@ -16,6 +17,9 @@ export const ACCESS = {
   prepare: 'prepare',
   sign: 'human sign',
 };
+
+export const OPERATING_REGISTRY_VERSION = '2026-10-04.1';
+export const OPERATING_REGISTRY_UPDATED_AT = '2026-10-04';
 
 export const TOOLS = [
   {
@@ -103,19 +107,19 @@ export const WALLET_ROLES = [
   },
   {
     slug: 'reserve',
-    name: 'the Reserve',
+    name: 'the Reservoir',
     address: 'EwScGspTqWYDuQokKUvGG6bkseQEUL9gKPNdodBPoMLK',
-    purpose: 'treasury preservation and approved operating funds',
-    automatic: 'runway and allocation reporting',
+    purpose: 'operating runway, approved refunds and known obligations',
+    automatic: 'runway, obligation and allocation reporting',
     human: 'transfers and conversions',
   },
   {
     slug: 'open-hand',
     name: 'the Open Hand',
     address: '2aB6fpZP72Ld28E62bCnwdDH46rszZwRu3dR8vzwyDiM',
-    purpose: 'tasks, puzzles and rewards sent outward',
-    automatic: 'quotes, budget checks and payout proposals',
-    human: 'every payout or market action',
+    purpose: 'approved rewards or assistance sent outward after a disclosed Reservoir grant',
+    automatic: 'budget checks and outward payment proposals',
+    human: 'every grant and outward payment',
   },
   {
     slug: 'lp',
@@ -127,7 +131,7 @@ export const WALLET_ROLES = [
   },
   {
     slug: 'tender-phone',
-    name: 'Tender, phone',
+    name: 'Tender settlement, phone',
     address: 'HmnkeUfcRaPZpBZv6K5s7s9FThsakSQjVJ2YKdEb9oko',
     purpose: 'small supervised settlements on hand',
     automatic: 'receipt matching and settlement proposals',
@@ -135,7 +139,7 @@ export const WALLET_ROLES = [
   },
   {
     slug: 'tender-desk',
-    name: 'Tender, desk',
+    name: 'Tender settlement, desk',
     address: '86JyeB94ABYCpQshm2xvoqf9WJopdEu8VGswYSufNDgE',
     purpose: 'direct Solana service settlement at the desk',
     automatic: 'request and payment reconciliation',

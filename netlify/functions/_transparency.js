@@ -17,7 +17,7 @@
 // No oxford commas, no em dashes.
 
 import { MINT, rpc } from './_shared.js';
-import { WALLET_ROLES } from '../../src/data/tools.js';
+import { OPERATING_REGISTRY_VERSION, WALLET_ROLES } from '../../src/data/tools.js';
 
 const TOKEN_2022 = 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb';
 const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
@@ -152,7 +152,7 @@ export const readOperatingWallets = async ({ fresh = false } = {}) => {
     };
   });
 
-  const body = { wallets, observedAt, prices };
+  const body = { wallets, observedAt, prices, registryVersion: OPERATING_REGISTRY_VERSION };
   cache = { at: Date.now(), body };
   return body;
 };

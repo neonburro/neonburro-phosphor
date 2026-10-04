@@ -20,7 +20,6 @@ import { useEffect, useRef, useState } from 'react';
 import { Box, Button, Checkbox, HStack, Text, VStack } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
 import QRCode from 'qrcode';
-import TokenChip from '../../components/TokenChip';
 import { WALLET_LINK } from '../../data/links';
 import { t } from '../../data/copy';
 import { check, knownHandle, tokens } from '../../lib/holder';
@@ -75,82 +74,6 @@ const PHANTOM_LINK = () => `https://phantom.app/ul/browse/${encodeURIComponent(h
 const SOLFLARE_LINK = () => `https://solflare.com/ul/v1/browse/${encodeURIComponent(here())}?ref=${encodeURIComponent(here())}`;
 const TRUST_LINK = () => `https://link.trustwallet.com/open_url?coin_id=501&url=${encodeURIComponent(here())}`;
 const COINBASE_LINK = () => `https://go.cb-w.com/dapp?cb_url=${encodeURIComponent(here())}`;
-
-// The door states its public vitals before anyone signs. A value appears only
-// after it arrives. Missing data stays absent rather than becoming a fake zero.
-const useDoorSignals = () => {
-  const [sig, setSig] = useState({});
-  useEffect(() => {
-    let dead = false;
-    fetch('https://neonburro.com/.netlify/functions/token-price')
-      .then((response) => (response.ok ? response.json() : null))
-      .then((payload) => {
-        const token = payload?.tokens?.neonburro;
-        if (dead || !token) return;
-        setSig((current) => ({ ...current, price: token.usdPrice, change: token.change24h, pool: token.reserves?.poolUsd }));
-      })
-      .catch(() => {});
-    if (supabase) {
-      supabase.from('token_snapshots').select('holders').order('taken_at', { ascending: false }).limit(1)
-        .then(({ data }) => { if (!dead && data?.[0]) setSig((current) => ({ ...current, holders: data[0].holders })); });
-      supabase.from('send_a_burro_public').select('spot').eq('status', 'ramp')
-        .then(({ data }) => { if (!dead && Array.isArray(data)) setSig((current) => ({ ...current, spots: Math.max(0, 100 - data.length) })); });
-    }
-    return () => { dead = true; };
-  }, []);
-  return sig;
-};
-
-const sigMoney = (price) => (Number.isFinite(price) ? (price >= 0.01 ? `$${price.toFixed(4)}` : `$${price.toPrecision(3)}`) : null);
-
-const DoorSignals = () => {
-  const sig = useDoorSignals();
-  const bits = [];
-  if (sigMoney(sig.price)) {
-    bits.push(
-      <Text as="span" key="price" color={colors.text.primary}>
-        {sigMoney(sig.price)}{' '}
-        {Number.isFinite(sig.change) && (
-          <Text as="span" color={sig.change >= 0 ? colors.accent.signal : colors.text.muted}>
-            {sig.change >= 0 ? '+' : ''}{sig.change.toFixed(1)}%
-          </Text>
-        )}
-      </Text>
-    );
-  }
-  if (Number.isFinite(sig.holders)) {
-    bits.push(<Text as="span" key="holders"><Text as="span" color={colors.text.primary}>{sig.holders}</Text> holders</Text>);
-  }
-  if (Number.isFinite(sig.spots)) {
-    bits.push(
-      <Text as="span" key="spots">
-        <Box as="a" href="https://neonburro.com/send-a-burro/" target="_blank" rel="noopener noreferrer"
-          color={colors.text.muted} borderBottom="1px solid" borderColor="transparent"
-          transition={`color 200ms ${EASE}, border-color 200ms`}
-          _hover={{ color: colors.accent.signal, borderColor: colors.accent.signal }}>
-          <Text as="span" color={colors.text.primary}>{sig.spots}</Text> spots stand open on the wall
-        </Box>
-      </Text>
-    );
-  }
-  if (!bits.length) return null;
-  return (
-    <HStack spacing={0} flexWrap="wrap" rowGap={1.5} fontFamily="mono" fontSize="12px"
-      color={colors.text.muted} letterSpacing="0.02em"
-      sx={{
-        animation: 'nbSigIn 0.7s cubic-bezier(0.16, 1, 0.3, 1) both',
-        '@keyframes nbSigIn': { from: { opacity: 0, transform: 'translateY(8px)' }, to: { opacity: 1, transform: 'translateY(0)' } },
-        '@media (prefers-reduced-motion: reduce)': { animation: 'none' },
-      }}>
-      {bits.map((bit, index) => (
-        <HStack as="span" key={index} spacing={0} display="inline-flex" align="baseline">
-          {index > 0 && <Text as="span" mx={2.5} color={colors.surface.lineStrong}>·</Text>}
-          {bit}
-        </HStack>
-      ))}
-    </HStack>
-  );
-};
 
 // ── A WALLET THAT NEVER ANSWERS MUST NOT HOLD THE DOOR ──────────────────
 //
@@ -395,7 +318,7 @@ const Door = () => {
       document.removeEventListener('visibilitychange', look);
       window.removeEventListener('focus', look);
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   const go = async (choice) => {
     setRemembered(remember);
@@ -484,8 +407,6 @@ const Door = () => {
         <Text fontFamily="body" fontSize={{ base: '15px', md: '16px' }} lineHeight="1.7" color={colors.text.secondary}>
           {t('door_line')}
         </Text>
-
-        <DoorSignals />
 
         {(phase === 'under' || phase === 'quiet' || phase === 'nowallet') && (
           <Text fontFamily="mono" fontSize="13px" lineHeight="1.7" color={colors.text.primary} borderLeft="2px solid" borderColor={colors.accent.signal} pl={4}>
@@ -623,7 +544,6 @@ const Door = () => {
           </Text>
         )}
       </VStack>
-      <TokenChip />
     </VStack>
   );
 };
