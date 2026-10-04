@@ -46,14 +46,40 @@ const SOLANA_ADDRESS = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 // walletShapeOf is the companion. When no address is found it reports WHICH
 // providers were present so the door can say something true instead of a guess.
 // It returns provider names and counts only, never an address.
+// Where supabase ACTUALLY puts the address, read off the real row 2026-10-04:
+//
+//   identity.provider          'web3'
+//   identity_data.sub          'web3:solana:86JyeB94...NDgE'   PREFIXED
+//   identity_data.custom_claims.address  '86JyeB94...NDgE'     NESTED
+//
+// Neither of those is a bare address at the top level, which is why two earlier
+// passes at this function found nothing and refused every genuine jupiter
+// signature. The address was never missing. It was one level down and wearing a
+// prefix, and both earlier versions looked only at the top level.
+//
+// identity_data is written by supabase during the verified sign in and is NOT
+// user writable. user_metadata carries the same custom_claims and IS writable by
+// the account, so it stays out of here. That distinction is the whole security
+// property of this helper and it has not moved.
 export const verifiedWalletOf = (user) => {
   const identities = Array.isArray(user?.identities) ? user.identities : [];
   for (const identity of identities) {
     const data = identity?.identity_data || {};
-    const address = [identity?.provider_id, data.address, data.sub, data.wallet, data.public_key]
-      .map((candidate) => String(candidate || '').trim())
-      .find((candidate) => SOLANA_ADDRESS.test(candidate));
-    if (address) return address;
+    const claims = data.custom_claims || {};
+    const candidates = [
+      claims.address, claims.public_key,
+      data.address, data.wallet, data.public_key,
+      identity?.provider_id, data.sub,
+    ];
+    for (const raw of candidates) {
+      const value = String(raw || '').trim();
+      if (!value) continue;
+      // 'web3:solana:<address>' is the shape sub and provider_id arrive in, so
+      // the last colon segment is the address. A bare address has no colon and
+      // passes through this untouched.
+      const address = value.includes(':') ? value.split(':').pop() : value;
+      if (SOLANA_ADDRESS.test(address)) return address;
+    }
   }
   return null;
 };
